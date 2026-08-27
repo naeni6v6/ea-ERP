@@ -10,6 +10,10 @@ apps/api/.env
 apps/web/.env.local
 packages/db/.env
 
+# 자동 백업 (DB 덤프 — 대용량, git에 안 담는다)
+backups/
+.seed-done
+
 # 세션/도구 상태
 .omc/
 .gstack/

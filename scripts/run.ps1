@@ -148,37 +148,59 @@ if (-not (Test-Path '.seed-done')) {
     if ((Invoke-Pnpm db:seed) -eq 0) { Set-Content -Path '.seed-done' -Value 'done' }
 }
 
-# ── 7. API + Web 서버 시작 (이미 켜져 있으면 건너뜀) ──
+# ── 7. 자동 백업 — DB 덤프(최근 14개 보관) + 소스 스냅샷 커밋 ──
+Write-Host "[4/5] 자동 백업 중..."
+$stamp = Get-Date -Format 'yyyyMMdd_HHmm'
+$pgDump = Join-Path $pgPortable 'pgsql\bin\pg_dump.exe'
+if (Test-Path $pgDump) {
+    New-Item -ItemType Directory -Force 'backups' | Out-Null
+    $env:PGPASSWORD = 'erp'
+    & $pgDump -h localhost -U erp -Fc -f "backups\ea_erp_$stamp.dump" ea_erp 2>$null
+    if (Test-Path "backups\ea_erp_$stamp.dump") {
+        Get-ChildItem 'backups\ea_erp_*.dump' | Sort-Object LastWriteTime -Descending |
+            Select-Object -Skip 14 | Remove-Item -Force -ErrorAction SilentlyContinue
+        Write-Host "      DB 백업 완료: backups\ea_erp_$stamp.dump"
+    }
+}
+if ((Test-Path '.git') -and (Get-Command git -ErrorAction SilentlyContinue)) {
+    git add -A 2>$null | Out-Null
+    git commit -m "자동 백업 $stamp" 2>$null | Out-Null
+}
+
+# ── 8. 빌드 확인 — 소스가 바뀐 경우에만 다시 빌드 (평소엔 건너뛰어 수 초 만에 시작) ──
+function Get-NewestWrite($paths) {
+    $files = Get-ChildItem $paths -Recurse -File -ErrorAction SilentlyContinue
+    if (-not $files) { return Get-Date 0 }
+    return ($files | Measure-Object -Maximum LastWriteTime).Maximum
+}
+$apiOut = 'apps\api\dist\main.js'
+if ((-not (Test-Port 4000)) -and ((-not (Test-Path $apiOut)) -or ((Get-NewestWrite @('apps\api\src', 'packages\db\prisma\schema.prisma')) -gt (Get-Item $apiOut).LastWriteTime))) {
+    Write-Host "      API 빌드 중... (코드가 바뀐 경우에만 수행)"
+    if ((Invoke-Pnpm --filter '@ea-erp/api' build) -ne 0) { Fail "API 빌드 실패. 위 로그를 확인하세요." }
+}
+$webOut = 'apps\web\.next\BUILD_ID'
+if ((-not (Test-Port 3000)) -and ((-not (Test-Path $webOut)) -or ((Get-NewestWrite @('apps\web\src', 'apps\web\tailwind.config.ts')) -gt (Get-Item $webOut).LastWriteTime))) {
+    Write-Host "      웹 빌드 중... (코드가 바뀐 경우에만, 1~2분)"
+    if ((Invoke-Pnpm --filter '@ea-erp/web' build) -ne 0) { Fail "웹 빌드 실패. 위 로그를 확인하세요." }
+}
+
+# ── 9. API + Web 서버 시작 (프로덕션 모드 — 빠르고 가볍다. 이미 켜져 있으면 건너뜀) ──
 if (Test-Port 4000) {
-    Write-Host "[4/5] API 서버(4000)가 이미 실행 중입니다."
+    Write-Host "      API 서버(4000)가 이미 실행 중입니다."
 } else {
-    Write-Host "[4/5] API 서버 시작 중... (별도 창, 닫으면 종료)"
-    Start-Process cmd -ArgumentList '/k', "cd /d `"$root`" & pnpm api:dev"
+    Write-Host "      API 서버 시작 중... (별도 창, 닫으면 종료)"
+    Start-Process cmd -ArgumentList '/k', "cd /d `"$root`" & pnpm --filter @ea-erp/api start"
 }
 if (Test-Port 3000) {
     Write-Host "      웹 서버(3000)가 이미 실행 중입니다."
 } else {
     Write-Host "      웹 서버 시작 중... (별도 창, 닫으면 종료)"
-    Start-Process cmd -ArgumentList '/k', "cd /d `"$root`" & pnpm web:dev"
+    Start-Process cmd -ArgumentList '/k', "cd /d `"$root`" & pnpm --filter @ea-erp/web start"
 }
-Write-Host "      서버 준비 대기 중... 최초 실행은 1~2분 걸릴 수 있습니다."
-$apiOk = Wait-Port 4000 180
-$webOk = Wait-Port 3000 60
+$apiOk = Wait-Port 4000 60
+$webOk = Wait-Port 3000 30
 if (-not ($apiOk -and $webOk)) {
     Write-Host "[주의] 서버가 아직 준비되지 않았습니다. 서버 창의 로그를 확인한 뒤 브라우저에서 새로고침 하세요." -ForegroundColor Yellow
-}
-if ($webOk) {
-    # 첫 요청 시 Next.js가 화면을 컴파일하므로, 미리 요청을 보내 브라우저가 열리자마자 바로 보이게 한다
-    Write-Host "      첫 화면 준비 중... (브라우저는 준비 완료 후 자동으로 열립니다)"
-    foreach ($path in '/login', '/') {
-        for ($i = 0; $i -lt 45; $i++) {
-            try {
-                $r = Invoke-WebRequest -Uri "http://localhost:3000$path" -UseBasicParsing -TimeoutSec 15
-                if ($r.StatusCode -eq 200) { break }
-            } catch {}
-            Start-Sleep -Seconds 2
-        }
-    }
 }
 
 # ── 8. 웹 화면 열기 ─────────────────────────────
