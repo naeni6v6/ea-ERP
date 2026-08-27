@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "db:up": "docker compose up -d db",
+    "db:up": "docker compose -f scripts/docker-compose.yml up -d db",
     "db:migrate": "pnpm --filter @ea-erp/db migrate",
     "db:seed": "pnpm --filter @ea-erp/db seed",
     "db:generate": "pnpm --filter @ea-erp/db generate",

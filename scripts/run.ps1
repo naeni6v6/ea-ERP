@@ -52,7 +52,7 @@ function Invoke-Pnpm {
 }
 
 # ── 3. .env 자동 생성 ───────────────────────────
-if (-not (Test-Path '.env')) { Copy-Item '.env.example' '.env' }
+if (-not (Test-Path '.env')) { Copy-Item 'scripts\.env.example' '.env' }
 if (-not (Test-Path 'packages\db\.env')) { Copy-Item '.env' 'packages\db\.env' }
 if (-not (Test-Path 'apps\api\.env')) { Copy-Item '.env' 'apps\api\.env' }
 if (-not (Test-Path 'apps\web\.env.local')) {
@@ -124,7 +124,7 @@ else {
         exit 1
     }
     Write-Host "      PostgreSQL 컨테이너 시작 중..."
-    docker compose up -d db
+    docker compose -f 'scripts\docker-compose.yml' up -d db
     if ($LASTEXITCODE -ne 0) { Fail "docker compose 실행 실패. 위 로그를 확인하세요." }
     if (-not (Wait-Port 5432 60)) { Fail "DB가 60초 안에 준비되지 않았습니다." }
 }
@@ -143,9 +143,10 @@ if ($freshInstall) { Invoke-Pnpm db:generate | Out-Null }
 # ── 6. 마이그레이션 + 최초 시드 ─────────────────
 Write-Host "[3/5] DB 마이그레이션 확인 중..."
 if ((Invoke-Pnpm --filter '@ea-erp/db' run deploy) -ne 0) { Fail "DB 마이그레이션 실패. 위 로그를 확인하세요." }
-if (-not (Test-Path '.seed-done')) {
+New-Item -ItemType Directory -Force 'backups' | Out-Null
+if (-not (Test-Path 'backups\.seed-done')) {
     Write-Host "      초기 데이터 등록 중... (사업유형 / 부서 / 계정과목 / CEO 계정)"
-    if ((Invoke-Pnpm db:seed) -eq 0) { Set-Content -Path '.seed-done' -Value 'done' }
+    if ((Invoke-Pnpm db:seed) -eq 0) { Set-Content -Path 'backups\.seed-done' -Value 'done' }
 }
 
 # ── 7. 자동 백업 — DB 덤프(최근 14개 보관) + 소스 스냅샷 커밋 ──

@@ -29,7 +29,7 @@ if (Test-Path $pgCtl) {
         docker info 2>$null | Out-Null
         if ($LASTEXITCODE -eq 0) {
             Write-Host "PostgreSQL 컨테이너 종료 중..."
-            docker compose stop db 2>$null | Out-Null
+            docker compose -f 'scripts\docker-compose.yml' stop db 2>$null | Out-Null
         }
     }
 }

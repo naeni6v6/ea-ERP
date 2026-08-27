@@ -6,24 +6,27 @@
 ## 구조
 ```
 ea-erp/
-├ docs/01_Phase1_설계초안.md   설계 문서 (아키텍처·ERD·플로우·권한·질문)
+├ docs/                        설계 문서 + 앞으로_할일.txt
 ├ packages/db/                 Prisma schema + migration + seed
-├ apps/api/                    NestJS API (auth · org · projects · ledger · treasury · metrics · audit)
-├ apps/web/                    Next.js 14 App Router 대시보드 (대시보드·손익·거래·자금·프로젝트·설정)
-├ scripts/e2e.sh               API 시나리오 테스트 (프로젝트→거래→은행분류→대시보드→권한)
-└ docker-compose.yml           PostgreSQL 16
+├ apps/api/                    NestJS API (auth · org · projects · ledger · treasury · cards · metrics · audit)
+├ apps/web/                    Next.js 14 App Router 대시보드 (대시보드·손익·거래·자금·카드지출·프로젝트·설정)
+├ scripts/                     실행/종료 스크립트 · docker-compose.yml · .env.example · e2e.sh
+├ backups/                     자동 DB 백업 (실행할 때마다, 최근 14개 보관)
+└ 실행.bat / 종료.bat          원클릭 런처
 ```
+> 루트에 남은 `package.json` · `pnpm-workspace.yaml` · `pnpm-lock.yaml` · `.env` · `.gitignore` 는
+> pnpm 워크스페이스와 git이 루트에서만 인식하는 파일이라 옮길 수 없다.
 
 ## 실행 (Windows 원클릭)
 **`실행.bat`** 더블클릭 — DB(포터블 PostgreSQL `%USERPROFILE%\pgportable` 또는 Docker) 시작 → 의존성/마이그레이션/시드 자동 처리 → API(:4000)·Web(:3000) 창 실행 → 브라우저 오픈까지 자동.
 **`종료.bat`** — 서버 2개와 DB를 모두 종료.
 로직은 `scripts/run.ps1` / `scripts/stop.ps1` 에 있다 (bat은 인코딩 문제를 피하기 위한 ASCII 런처).
-> 이전 PC(lsy54) 경로가 하드코딩된 구버전 bat과 개발도구 캐시는 `_archive/` 로 이동했다.
+실행 시 빌드된 프로덕션 서버로 뜨고(수 초), 시작할 때마다 DB 덤프 + git 스냅샷 백업을 자동으로 남긴다.
 
 ## 실행 (수동)
 ```bash
 pnpm install
-cp .env.example .env && cp .env packages/db/.env && cp .env apps/api/.env   # DATABASE_URL, JWT_SECRET 수정
+cp scripts/.env.example .env && cp .env packages/db/.env && cp .env apps/api/.env   # DATABASE_URL, JWT_SECRET 수정
 pnpm db:up            # docker postgres
 pnpm db:migrate       # 테이블 생성
 pnpm db:seed          # 사업유형/부서/계정과목/계좌/상태코드/CEO 계정
