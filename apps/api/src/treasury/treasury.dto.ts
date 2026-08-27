@@ -1,0 +1,8 @@
+import { Allow, IsArray, IsBoolean, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
+import { PlannedKind, TxnDirection } from '@prisma/client';
+export class BankAccountDto { @IsString() bankName: string; @IsString() alias: string; @IsOptional() @IsString() accountNoMasked?: string; @IsOptional() @IsString() departmentId?: string | null; @IsOptional() @IsString() purpose?: string; @IsOptional() @IsBoolean() isRestricted?: boolean; @IsOptional() openingBalance?: string | number; @IsOptional() @IsString() openingDate?: string; @IsOptional() @IsBoolean() isActive?: boolean; }
+export class BankTxnRowDto { @IsString() txnAt: string; @IsEnum(TxnDirection) direction: TxnDirection; @Allow() amount: string | number; @IsOptional() @IsString() counterpartyRaw?: string; @IsOptional() @IsString() descriptionRaw?: string; @IsOptional() balanceAfter?: string | number; @IsOptional() @IsString() externalId?: string; }
+export class ImportDto { @IsString() bankAccountId: string; @IsArray() rows: BankTxnRowDto[]; }
+export class ReserveDto { @IsString() category: string; @IsString() purpose: string; @Allow() amount: string | number; @IsOptional() @IsString() memo?: string; @IsOptional() @IsString() reason?: string; }
+export class ReserveMoveDto { @IsIn(['INCREASE', 'RELEASE']) type: 'INCREASE' | 'RELEASE'; @Allow() amount: string | number; @IsString() reason: string; }
+export class PlannedDto { @IsEnum(PlannedKind) kind: PlannedKind; @IsString() title: string; @IsOptional() @IsString() category?: string; @Allow() amount: string | number; @IsString() dueDate: string; @IsOptional() @IsString() businessTypeId?: string; @IsOptional() @IsString() departmentId?: string; @IsOptional() @IsString() projectId?: string; @IsOptional() @IsString() memo?: string; }

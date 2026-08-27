@@ -1,0 +1,630 @@
+// EA Company 관리회계 ERP — MVP1 Schema
+// 원칙: 금액 BigInt(원 단위 정수) / 사업·부서 독립축 / 은행원본 불변 / 손익≠현금 / soft delete + audit
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── 조직 · 권한 ─────────────────────────
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  bizNo     String?
+  timezone  String   @default("Asia/Seoul")
+  createdAt DateTime @default(now())
+
+  businessTypes BusinessType[]
+  departments   Department[]
+  users         User[]
+  projects      Project[]
+  accounts      Account[]
+  partners      Partner[]
+  journalEntries JournalEntry[]
+  bankAccounts  BankAccount[]
+  cashReserves  CashReserve[]
+  plannedPayments PlannedPayment[]
+  codeValues    CodeValue[]
+  auditLogs     AuditLog[]
+  corporateCards CorporateCard[]
+  cardExpenses   CardExpense[]
+}
+
+/// 사업유형 (독립 분석축, 하드코딩 금지)
+model BusinessType {
+  id        String  @id @default(cuid())
+  companyId String
+  code      String
+  name      String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  projects Project[]
+  lines    JournalLine[]
+  scopes   UserRoleScope[]
+  planned  PlannedPayment[]
+  cardExpenses CardExpense[]
+
+  @@unique([companyId, code])
+}
+
+enum DepartmentKind {
+  HQ
+  SITE
+}
+
+/// 부서/사업장 (독립 분석축)
+model Department {
+  id        String         @id @default(cuid())
+  companyId String
+  code      String
+  name      String
+  kind      DepartmentKind @default(HQ)
+  sortOrder Int            @default(0)
+  isActive  Boolean        @default(true)
+
+  company      Company             @relation(fields: [companyId], references: [id])
+  users        User[]
+  leadProjects Project[]           @relation("LeadDepartment")
+  projectLinks ProjectDepartment[]
+  lines        JournalLine[]
+  scopes       UserRoleScope[]
+  bankAccounts BankAccount[]
+  planned      PlannedPayment[]
+  cardExpenses CardExpense[]
+
+  @@unique([companyId, code])
+}
+
+enum Role {
+  CEO
+  ADMIN
+  EMPLOYEE
+}
+
+enum ScopeType {
+  COMPANY
+  BUSINESS_TYPE
+  DEPARTMENT
+  PROJECT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  companyId    String
+  email        String   @unique
+  passwordHash String
+  name         String
+  departmentId String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  company     Company        @relation(fields: [companyId], references: [id])
+  department  Department?    @relation(fields: [departmentId], references: [id])
+  roleScopes  UserRoleScope[]
+  ownedProjects Project[]    @relation("ProjectOwner")
+  memberships ProjectMember[]
+  tasks       Task[]         @relation("TaskAssignee")
+  ownedLines  JournalLine[]
+  auditLogs   AuditLog[]
+  heldCards   CorporateCard[] @relation("CardHolder")
+}
+
+/// Role × Scope 조합. 한 사용자가 여러 행을 가질 수 있음.
+/// 예) ADMIN + DEPARTMENT(연구팀), EMPLOYEE + PROJECT(A)
+model UserRoleScope {
+  id             String    @id @default(cuid())
+  userId         String
+  role           Role
+  scopeType      ScopeType
+  businessTypeId String?
+  departmentId   String?
+  projectId      String?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessType BusinessType? @relation(fields: [businessTypeId], references: [id])
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  project      Project?      @relation(fields: [projectId], references: [id])
+
+  @@index([userId])
+}
+
+/// 상태값 등 확장 가능한 코드 (PROJECT_STATUS, TASK_STATUS, RESERVE_CATEGORY ...)
+model CodeValue {
+  id        String  @id @default(cuid())
+  companyId String
+  kind      String
+  code      String
+  label     String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+  meta      Json?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, kind, code])
+}
+
+// ───────────────────────── 프로젝트 · 업무 ─────────────────────────
+
+model Project {
+  id               String    @id @default(cuid())
+  companyId        String
+  code             String
+  name             String
+  businessTypeId   String
+  leadDepartmentId String
+  ownerUserId      String?
+  status           String    @default("PLANNED") // CodeValue(PROJECT_STATUS)
+  priority         String    @default("NORMAL")  // LOW/NORMAL/HIGH/CRITICAL
+  goal             String?
+  description      String?
+  startDate        DateTime? @db.Date
+  planEndDate      DateTime? @db.Date
+  actualEndDate    DateTime? @db.Date
+  contractAmount   BigInt    @default(0)
+  expectedRevenue  BigInt    @default(0)
+  budgetAmount     BigInt    @default(0)
+  targetCost       BigInt    @default(0)
+  targetProfit     BigInt    @default(0)
+  /// 직원(EMPLOYEE)에게 프로젝트 재무요약 공개 여부 (Q5 기본값 false)
+  financeVisibleToMembers Boolean @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  company        Company             @relation(fields: [companyId], references: [id])
+  businessType   BusinessType        @relation(fields: [businessTypeId], references: [id])
+  leadDepartment Department          @relation("LeadDepartment", fields: [leadDepartmentId], references: [id])
+  owner          User?               @relation("ProjectOwner", fields: [ownerUserId], references: [id])
+  departments    ProjectDepartment[]
+  members        ProjectMember[]
+  tasks          Task[]
+  lines          JournalLine[]
+  scopes         UserRoleScope[]
+  planned        PlannedPayment[]
+  cardExpenses   CardExpense[]
+
+  @@unique([companyId, code])
+  @@index([companyId, businessTypeId])
+  @@index([companyId, leadDepartmentId])
+}
+
+model ProjectDepartment {
+  projectId    String
+  departmentId String
+  isLead       Boolean @default(false)
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@id([projectId, departmentId])
+}
+
+model ProjectMember {
+  projectId     String
+  userId        String
+  roleInProject String @default("MEMBER") // OWNER/MEMBER
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([projectId, userId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  assigneeId  String?
+  dueDate     DateTime? @db.Date
+  priority    String    @default("NORMAL")
+  status      String    @default("TODO") // CodeValue(TASK_STATUS)
+  isDone      Boolean   @default(false)
+  /// 향후 가중치 진행률용 (기본 1)
+  weight      Int       @default(1)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([projectId, isDone])
+}
+
+// ───────────────────────── 관리회계 원장 (경량 복식부기) ─────────────────────────
+
+enum AccountCategory {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+/// 손익계산서 구간 매핑
+enum PlSection {
+  NONE
+  SALES
+  COGS
+  SGA
+  NON_OP_INCOME
+  NON_OP_EXPENSE
+  INCOME_TAX
+}
+
+model Account {
+  id        String          @id @default(cuid())
+  companyId String
+  code      String
+  name      String
+  category  AccountCategory
+  plSection PlSection       @default(NONE)
+  /// 시스템이 템플릿 분개에서 찾는 키 (CASH_BANK, AR, AP, VAT_OUT, VAT_IN, PREPAID, CONTRACT_LIAB, SALES_DEFAULT ...)
+  systemKey String?
+  parentId  String?
+  isActive  Boolean         @default(true)
+  sortOrder Int             @default(0)
+
+  company  Company       @relation(fields: [companyId], references: [id])
+  parent   Account?      @relation("AccountTree", fields: [parentId], references: [id])
+  children Account[]     @relation("AccountTree")
+  lines    JournalLine[]
+  cardExpenses CardExpense[]
+
+  @@unique([companyId, code])
+  @@unique([companyId, systemKey])
+}
+
+enum PartnerType {
+  CUSTOMER
+  VENDOR
+  BOTH
+}
+
+model Partner {
+  id        String      @id @default(cuid())
+  companyId String
+  type      PartnerType @default(BOTH)
+  name      String
+  bizNo     String?
+  contact   String?
+  memo      String?
+  isActive  Boolean     @default(true)
+
+  company Company        @relation(fields: [companyId], references: [id])
+  entries JournalEntry[]
+}
+
+enum EntryStatus {
+  POSTED
+  VOID
+}
+
+enum EntrySource {
+  MANUAL
+  BANK
+  IMPORT
+  SYSTEM
+}
+
+/// 거래 헤더. type = 입력 템플릿 (SALES, CASH_SALES, RECEIPT_AR, EXPENSE, CASH_EXPENSE, PAYMENT_AP, PREPAID, PREPAID_AMORTIZE, CONTRACT_PREPAY, CONTRACT_RECOGNIZE, TRANSFER, MANUAL)
+model JournalEntry {
+  id         String      @id @default(cuid())
+  companyId  String
+  entryNo    Int         @default(autoincrement())
+  entryDate  DateTime    @db.Date
+  type       String
+  status     EntryStatus @default(POSTED)
+  source     EntrySource @default(MANUAL)
+  sourceRef  String?
+  partnerId  String?
+  memo       String?
+  createdById String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  company  Company       @relation(fields: [companyId], references: [id])
+  partner  Partner?      @relation(fields: [partnerId], references: [id])
+  lines    JournalLine[]
+  bankClassifications BankTxnClassification[]
+  cardExpense CardExpense?
+
+  @@index([companyId, entryDate])
+}
+
+/// 분개 라인. Dimension은 라인에 붙는다 (한 거래를 여러 프로젝트로 분할 귀속 가능)
+model JournalLine {
+  id             String  @id @default(cuid())
+  entryId        String
+  accountId      String
+  debit          BigInt  @default(0)
+  credit         BigInt  @default(0)
+  businessTypeId String?
+  departmentId   String?
+  projectId      String?
+  ownerUserId    String?
+  bankAccountId  String?
+  memo           String?
+
+  entry        JournalEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account      Account       @relation(fields: [accountId], references: [id])
+  businessType BusinessType? @relation(fields: [businessTypeId], references: [id])
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  project      Project?      @relation(fields: [projectId], references: [id])
+  ownerUser    User?         @relation(fields: [ownerUserId], references: [id])
+  bankAccount  BankAccount?  @relation(fields: [bankAccountId], references: [id])
+
+  @@index([accountId])
+  @@index([projectId])
+  @@index([departmentId])
+  @@index([businessTypeId])
+}
+
+// ───────────────────────── 자금 (Treasury) ─────────────────────────
+
+model BankAccount {
+  id             String   @id @default(cuid())
+  companyId      String
+  bankName       String
+  alias          String
+  accountNoMasked String?
+  departmentId   String?
+  purpose        String   @default("OPERATING") // OPERATING / GOV_PROJECT / RND / SITE
+  /// 사용제한 계좌 (정부과제 전용 등) → 가용현금 계산에서 제외
+  isRestricted   Boolean  @default(false)
+  openingBalance BigInt   @default(0)
+  openingDate    DateTime @db.Date
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  company      Company           @relation(fields: [companyId], references: [id])
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  transactions BankTransaction[]
+  lines        JournalLine[]
+  card         CorporateCard?
+}
+
+enum TxnDirection {
+  IN
+  OUT
+}
+
+/// 은행 거래 원본 — INSERT ONLY. 애플리케이션은 수정/삭제 API를 제공하지 않는다.
+model BankTransaction {
+  id              String       @id @default(cuid())
+  bankAccountId   String
+  txnAt           DateTime
+  direction       TxnDirection
+  amount          BigInt
+  counterpartyRaw String?
+  descriptionRaw  String?
+  balanceAfter    BigInt?
+  source          EntrySource  @default(MANUAL)
+  importBatchId   String?
+  externalId      String?
+  createdAt       DateTime     @default(now())
+
+  bankAccount    BankAccount            @relation(fields: [bankAccountId], references: [id])
+  classification BankTxnClassification?
+  cardExpense    CardExpense?
+
+  @@unique([bankAccountId, externalId])
+  @@index([bankAccountId, txnAt])
+}
+
+enum ClassificationStatus {
+  UNCLASSIFIED
+  CLASSIFIED
+  IGNORED
+}
+
+/// 원본 ↔ 관리회계 분류(=분개) 링크
+model BankTxnClassification {
+  bankTransactionId String               @id
+  journalEntryId    String?
+  status            ClassificationStatus @default(UNCLASSIFIED)
+  classifiedById    String?
+  classifiedAt      DateTime?
+
+  bankTransaction BankTransaction @relation(fields: [bankTransactionId], references: [id])
+  journalEntry    JournalEntry?   @relation(fields: [journalEntryId], references: [id])
+}
+
+enum ReserveStatus {
+  ACTIVE
+  RELEASED
+}
+
+/// 경영유보금 — 관리지표 (계정과목 아님, 부채 아님)
+model CashReserve {
+  id        String        @id @default(cuid())
+  companyId String
+  category  String        // CodeValue(RESERVE_CATEGORY): RISK / INVESTMENT / STRATEGIC ...
+  purpose   String
+  amount    BigInt        // 현재 유효 금액
+  status    ReserveStatus @default(ACTIVE)
+  memo      String?
+  createdById String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  company   Company               @relation(fields: [companyId], references: [id])
+  movements CashReserveMovement[]
+}
+
+enum ReserveMovementType {
+  SET
+  INCREASE
+  RELEASE
+}
+
+model CashReserveMovement {
+  id        String              @id @default(cuid())
+  reserveId String
+  type      ReserveMovementType
+  amount    BigInt
+  reason    String?
+  actorId   String
+  createdAt DateTime            @default(now())
+
+  reserve CashReserve @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+}
+
+enum PlannedKind {
+  CONFIRMED
+  PLANNED
+}
+
+enum PlannedStatus {
+  SCHEDULED
+  PAID
+  CANCELLED
+}
+
+/// 지급예정자금 (확정 / 계획)
+model PlannedPayment {
+  id             String        @id @default(cuid())
+  companyId      String
+  kind           PlannedKind
+  title          String
+  category       String?       // 급여/세금/임대료/외주비 ...
+  amount         BigInt
+  dueDate        DateTime      @db.Date
+  status         PlannedStatus @default(SCHEDULED)
+  businessTypeId String?
+  departmentId   String?
+  projectId      String?
+  linkedEntryId  String?
+  memo           String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  company      Company       @relation(fields: [companyId], references: [id])
+  businessType BusinessType? @relation(fields: [businessTypeId], references: [id])
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  project      Project?      @relation(fields: [projectId], references: [id])
+
+  @@index([companyId, status, dueDate])
+}
+
+// ───────────────────────── 법인카드 지출 ─────────────────────────
+
+enum CardType {
+  CREDIT
+  CHECK
+}
+
+/// 카드지출 수집 경로 — GOWID(고위드 API) / BANK(체크카드 결제계좌 출금 파생) / MANUAL(수동)
+enum CardSource {
+  GOWID
+  BANK
+  MANUAL
+}
+
+enum CardExpenseStatus {
+  PENDING   // 미제출 (명목 미입력)
+  SUBMITTED // 제출됨 — 대표 승인 대기
+  CONFIRMED // 대표 승인 완료
+  REJECTED  // 반려 — 직원이 명목 수정 후 재제출
+  EXCLUDED  // 카드지출 아님 / 제외
+}
+
+/// 법인카드 마스터 — 카드 ↔ 소지자 매핑. "누가 썼는지"는 이 매핑으로 결정된다.
+model CorporateCard {
+  id            String     @id @default(cuid())
+  companyId     String
+  name          String // 별칭 (예: 신한 법인 1234)
+  issuer        String // 신한카드 / 하나카드 / IBK기업은행 ...
+  cardType      CardType   @default(CREDIT)
+  last4         String?
+  holderUserId  String?
+  /// 체크카드 결제계좌 — 이 계좌의 출금을 카드지출로 파생한다 (카드:계좌 = 1:1 전제)
+  bankAccountId String?    @unique
+  source        CardSource @default(MANUAL)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+
+  company     Company       @relation(fields: [companyId], references: [id])
+  holder      User?         @relation("CardHolder", fields: [holderUserId], references: [id])
+  bankAccount BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  expenses    CardExpense[]
+}
+
+/// 카드지출 원본 — 수집값(일시/금액/가맹점)은 수정하지 않는다. 명목·상태만 갱신한다.
+model CardExpense {
+  id            String            @id @default(cuid())
+  companyId     String
+  cardId        String
+  usedAt        DateTime
+  amount        BigInt // 원화 금액 (양수)
+  currency      String            @default("KRW")
+  storeName     String?
+  approvalNo    String?
+  isCancelled   Boolean           @default(false)
+  status        CardExpenseStatus @default(PENDING)
+  purposeText   String? // 용도/명목 — "무슨 명목으로 썼는지"
+  memo          String? // 메모 — 자유 비고 (용도와 별개)
+  purposeById   String? // 명목 입력자
+  purposeAt     DateTime?
+  rejectReason  String? // 반려 사유
+
+  /// 관리회계 차원 — 승인 시 분개 라인에 그대로 실린다
+  businessTypeId String?
+  departmentId   String?
+  projectId      String?
+  accountId      String? // 비용 계정과목 (미지정 시 SGA_DEFAULT)
+  /// 승인 시 생성된 분개. 체크카드는 연결된 은행거래를 분류하고, 신용카드는 미지급금으로 계상한다.
+  journalEntryId String? @unique
+  confirmedById String? // 대표 확인자
+  confirmedAt   DateTime?
+  source        CardSource        @default(MANUAL)
+  externalId    String? // 고위드 expenseId / 은행 파생 시 bankTransaction.id
+  /// 체크카드: 은행 원본 거래 링크 (원본은 BankTransaction, 이 행은 카드 관점의 뷰)
+  bankTransactionId String?       @unique
+  createdAt     DateTime          @default(now())
+
+  company         Company          @relation(fields: [companyId], references: [id])
+  card            CorporateCard    @relation(fields: [cardId], references: [id])
+  bankTransaction BankTransaction? @relation(fields: [bankTransactionId], references: [id])
+  businessType    BusinessType?    @relation(fields: [businessTypeId], references: [id])
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  project         Project?         @relation(fields: [projectId], references: [id])
+  account         Account?         @relation(fields: [accountId], references: [id])
+  journalEntry    JournalEntry?    @relation(fields: [journalEntryId], references: [id])
+
+  @@unique([cardId, externalId])
+  @@index([companyId, usedAt])
+  @@index([cardId, status])
+}
+
+// ───────────────────────── 감사로그 ─────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  companyId String
+  actorId   String?
+  entity    String
+  entityId  String
+  action    String   // CREATE / UPDATE / DELETE / VOID / RELEASE / PERMISSION_CHANGE ...
+  before    Json?
+  after     Json?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+  @@index([companyId, entity, entityId])
+  @@index([companyId, createdAt])
+}

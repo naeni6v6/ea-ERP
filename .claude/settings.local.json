@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Command pnpm -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command docker -ErrorAction SilentlyContinue)",
+      "PowerShell(try { \\(Get-Command pnpm -ErrorAction Stop\\).Source } catch { \"pnpm: NOT FOUND\" }; try { \\(Get-Command npm -ErrorAction Stop\\).Source } catch { \"npm: NOT FOUND\" }; try { \\(Get-Command node -ErrorAction Stop\\).Source } catch { \"node: NOT FOUND\" }; try { \\(Get-Command docker -ErrorAction Stop\\).Source } catch { \"docker: NOT FOUND\" }; try { \\(Get-Command corepack -ErrorAction Stop\\).Source } catch { \"corepack: NOT FOUND\" })",
+      "PowerShell($env:COREPACK_ENABLE_DOWNLOAD_PROMPT='0'; corepack pnpm --version)",
+      "Bash(cmd //c 실행.bat)",
+      "Bash(echo \"exit=$?\")",
+      "PowerShell('' | cmd /c \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\실행.bat\"; \"exit=$LASTEXITCODE\"; Test-Path \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\.env\"; Test-Path \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\packages\\\\db\\\\.env\"; Test-Path \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\apps\\\\api\\\\.env\")",
+      "PowerShell($p = 'C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\실행.bat'; $t = [IO.File]::ReadAllText\\($p, [Text.Encoding]::UTF8\\); $t = $t -replace 'chcp 65001 >nul', 'chcp 949 >nul'; [IO.File]::WriteAllText\\($p, $t, [Text.Encoding]::GetEncoding\\(949\\)\\); \"converted\"; [IO.File]::ReadAllBytes\\($p\\)[0..20] -join ',')",
+      "PowerShell('' | cmd /c \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\실행.bat\"; \"exit=$LASTEXITCODE\"; \"env:\", \\(Test-Path \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\.env\"\\), \\(Test-Path \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\packages\\\\db\\\\.env\"\\), \\(Test-Path \"C:\\\\Users\\\\user\\\\Desktop\\\\ea-erp\\\\apps\\\\api\\\\.env\"\\))"
+    ]
+  }
+}

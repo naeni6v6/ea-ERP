@@ -1,0 +1,20 @@
+# 의존성 / 빌드 산출물
+node_modules/
+.next/
+dist/
+
+# 비밀값 — 절대 커밋하지 않는다 (JWT_SECRET, GOWID_API_KEY 등)
+.env
+.env.local
+apps/api/.env
+apps/web/.env.local
+packages/db/.env
+
+# 세션/도구 상태
+.omc/
+.gstack/
+_archive/
+
+# OS
+Thumbs.db
+Desktop.ini

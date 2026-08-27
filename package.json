@@ -1,0 +1,16 @@
+{
+  "name": "ea-erp",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm --filter @ea-erp/db migrate",
+    "db:seed": "pnpm --filter @ea-erp/db seed",
+    "db:generate": "pnpm --filter @ea-erp/db generate",
+    "api:dev": "pnpm --filter @ea-erp/api start:dev",
+    "api:build": "pnpm --filter @ea-erp/api build",
+    "web:dev": "pnpm --filter @ea-erp/web dev",
+    "web:build": "pnpm --filter @ea-erp/web build",
+    "dev": "pnpm --parallel --filter @ea-erp/api --filter @ea-erp/web run dev"
+  }
+}

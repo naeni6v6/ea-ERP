@@ -1,0 +1,28 @@
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { TreasuryService } from './treasury.service';
+import { Roles } from '../common/decorators/roles.decorator';
+import { AuthUser, CurrentUser } from '../common/decorators/current-user.decorator';
+import { BankAccountDto, ImportDto, PlannedDto, ReserveDto, ReserveMoveDto } from './treasury.dto';
+
+/** 회사 전체 자금 정보는 CEO 전용 (Q5 기본 정책). 필요 시 ADMIN에 계좌 단위 scope를 부여하도록 확장. */
+@Controller('treasury')
+@Roles(Role.CEO)
+export class TreasuryController {
+  constructor(private svc: TreasuryService) {}
+  @Get('bank-accounts') balances(@CurrentUser() u: AuthUser) { return this.svc.balances(u.companyId); }
+  @Post('bank-accounts') createAcc(@CurrentUser() u: AuthUser, @Body() d: BankAccountDto) { return this.svc.createAccount(u, d); }
+  @Patch('bank-accounts/:id') updateAcc(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: Partial<BankAccountDto>) { return this.svc.updateAccount(u, id, d); }
+
+  @Get('bank-transactions') txns(@CurrentUser() u: AuthUser, @Query() q: any) { return this.svc.listTransactions(u.companyId, { ...q, take: q.take ? Number(q.take) : undefined }); }
+  @Post('bank-transactions/import') import(@CurrentUser() u: AuthUser, @Body() d: ImportDto) { return this.svc.importRows(u, d); }
+  @Post('bank-transactions/:id/ignore') ignore(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body('reason') reason?: string) { return this.svc.ignoreTransaction(u, id, reason); }
+
+  @Get('reserves') reserves(@CurrentUser() u: AuthUser) { return this.svc.listReserves(u.companyId); }
+  @Post('reserves') createReserve(@CurrentUser() u: AuthUser, @Body() d: ReserveDto) { return this.svc.createReserve(u, d); }
+  @Post('reserves/:id/move') moveReserve(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: ReserveMoveDto) { return this.svc.moveReserve(u, id, d); }
+
+  @Get('planned-payments') planned(@CurrentUser() u: AuthUser, @Query() q: any) { return this.svc.listPlanned(u.companyId, q); }
+  @Post('planned-payments') createPlanned(@CurrentUser() u: AuthUser, @Body() d: PlannedDto) { return this.svc.createPlanned(u, d); }
+  @Patch('planned-payments/:id') updatePlanned(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: any) { return this.svc.updatePlanned(u, id, d); }
+}

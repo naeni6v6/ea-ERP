@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pretendard — 한글 가독성이 좋고 각지지 않은 서체. 오프라인에서도 뜨도록 번들한다. */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2-variations');
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-line-page text-ink antialiased;
+    /* 금액 자릿수 정렬 + 한글 자간을 살짝 좁혀 부드럽게 */
+    font-feature-settings: 'tnum';
+    letter-spacing: -0.011em;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  /* 굵기를 한 단계 낮춰 인상을 부드럽게 (기본 bold는 뚱뚱하게 찍힘) */
+  h1,
+  h2,
+  h3 {
+    @apply font-semibold;
+    letter-spacing: -0.02em;
+  }
+  ::selection {
+    @apply bg-brand/20;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-white shadow-soft;
+  }
+  .card-pad {
+    @apply card p-5;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-ink-mute;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none
+           transition-colors placeholder:text-ink-faint
+           focus:border-brand focus:ring-4 focus:ring-brand-ring
+           disabled:bg-line-soft disabled:text-ink-faint;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium
+           transition-all duration-150 active:scale-[0.98]
+           disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white shadow-glow hover:bg-brand-dark;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-white text-ink-soft hover:border-ink-faint hover:bg-line-soft;
+  }
+  .btn-danger {
+    @apply btn border border-red-200 bg-white text-neg hover:bg-red-50;
+  }
+  .th {
+    @apply whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium text-ink-mute;
+  }
+  .td {
+    @apply whitespace-nowrap px-4 py-3 text-sm;
+  }
+  .td-num {
+    @apply td text-right font-num;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[13px] font-medium;
+  }
+  /* 로고는 검은 배경 위 글로우 이미지 — screen 블렌드로 어두운 면에 자연스럽게 얹는다 */
+  .logo-blend {
+    mix-blend-mode: screen;
+  }
+}
