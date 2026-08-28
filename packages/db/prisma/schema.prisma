@@ -35,6 +35,24 @@ model Company {
   cardExpenses   CardExpense[]
   notices       Notice[]
   workLogs      WorkLog[]
+  plannedIncomes PlannedIncome[]
+}
+
+/// 입금 예정(들어올 돈) — 자금 달력에서 잔금일 기준으로 등록·표시
+model PlannedIncome {
+  id        String   @id @default(cuid())
+  companyId String
+  title     String
+  amount    BigInt
+  dueDate   DateTime @db.Date
+  memo      String?
+  status    String   @default("SCHEDULED") // SCHEDULED / RECEIVED / CANCELLED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, dueDate])
 }
 
 /// 오늘의 공지 — 대시보드 상단 현수막 배너. 날짜당 1건, 확인해야 다른 업무 진행 가능

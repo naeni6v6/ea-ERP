@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, IS_DEMO } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
 import { num } from '@/lib/format';
 import { FilterProvider } from '@/lib/filters';
@@ -34,11 +34,18 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: '/', label: '대시보드', show: () => true },
+  {
+    href: '/',
+    label: '대시보드',
+    show: () => true,
+    children: [{ href: '/projects', label: '프로젝트', mobileLabel: '프로젝트', show: () => true }],
+  },
   { href: '/pnl', label: '손익', show: (s) => s.isAdmin },
   { href: '/journal', label: '거래', show: (s) => s.isAdmin },
   { href: '/treasury', label: '자금', show: (s) => s.isCeo },
   {
+    // 지출 홈 = 카드+계좌 통합 통계 대시보드
+    href: '/expenses',
     label: '지출',
     show: () => true,
     children: [
@@ -174,6 +181,11 @@ function Shell({ children }: { children: React.ReactNode }) {
   // 소갈래 그룹(지출 등) 접기/펼치기 — 명시 토글이 없으면 하위 경로 활성 시 자동으로 펼친다
   const [openGroup, setOpenGroup] = useState<Record<string, boolean>>({});
 
+  // 페이지 이동 시 항상 맨 위에서 시작 (이전 페이지 스크롤 위치 이어받지 않게)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -201,7 +213,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   ).filter((n) => (n.children ? n.show(scope) && n.children.length > 0 : n.show(scope)));
   /** 모바일 가로 메뉴용 — 그룹은 하위 항목 풀네임으로 편다 */
   const flatItems = items.flatMap((n) =>
-    n.children ? n.children.map((c) => ({ href: c.href, label: c.mobileLabel })) : [{ href: n.href!, label: n.label }],
+    n.children
+      ? [
+          ...(n.href ? [{ href: n.href, label: n.label }] : []),
+          ...n.children.map((c) => ({ href: c.href, label: c.mobileLabel })),
+        ]
+      : [{ href: n.href!, label: n.label }],
   );
   const roleLabel = isCeo ? '대표' : isAdmin ? '관리자' : '직원';
   const initial = me.name.slice(0, 1);
@@ -227,19 +244,41 @@ function Shell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             const childActive = n.children.some((c) => isActive(c.href));
-            const opened = openGroup[n.label] ?? childActive;
+            const parentActive = n.href ? isActive(n.href) : false;
+            const opened = openGroup[n.label] ?? (childActive || parentActive);
+            const toggle = () => setOpenGroup((g) => ({ ...g, [n.label]: !opened }));
+            const chevron = (
+              <span className={`text-[11px] text-white/40 transition-transform ${opened ? 'rotate-180' : ''}`}>▾</span>
+            );
             return (
               <div key={n.label}>
-                <button
-                  onClick={() => setOpenGroup((g) => ({ ...g, [n.label]: !opened }))}
-                  className={`${navClass(childActive, true)} w-full`}
-                  aria-expanded={opened}
-                >
-                  <span className="flex-1 text-left">{n.label}</span>
-                  <span className={`text-[11px] text-white/40 transition-transform ${opened ? 'rotate-180' : ''}`}>
-                    ▾
-                  </span>
-                </button>
+                {n.href ? (
+                  // 부모가 페이지인 그룹(대시보드) — 클릭하면 이동 + 토글이 함께 열린다
+                  <Link
+                    href={n.href}
+                    onClick={() => setOpenGroup((g) => ({ ...g, [n.label]: true }))}
+                    className={`${navClass(parentActive || childActive, true)} w-full`}
+                  >
+                    <span className="flex-1 text-left">{n.label}</span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggle();
+                      }}
+                      className="-m-1 p-1"
+                      aria-expanded={opened}
+                      aria-label={`${n.label} 하위 메뉴`}
+                    >
+                      {chevron}
+                    </button>
+                  </Link>
+                ) : (
+                  <button onClick={toggle} className={`${navClass(childActive, true)} w-full`} aria-expanded={opened}>
+                    <span className="flex-1 text-left">{n.label}</span>
+                    {chevron}
+                  </button>
+                )}
                 {opened && (
                   <div className="ml-3.5 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
                     {n.children.map((c) => (
@@ -304,6 +343,11 @@ function Shell({ children }: { children: React.ReactNode }) {
             </div>
             {/* 대표 프로필 — 우측 상단 (데스크톱), 눈에 띄게 */}
             <div className="hidden shrink-0 items-center gap-3 border-b border-line bg-white/85 pl-4 pr-5 backdrop-blur lg:flex">
+              {IS_DEMO && (
+                <span className="badge bg-amber-50 font-bold text-warn" title="내부 확인용 스냅샷 — 조회만 가능합니다">
+                  읽기 전용 데모 모드
+                </span>
+              )}
               {isCeo && <ApprovalBell />}
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-brand-dark text-lg font-bold text-white shadow-glow">
                 {initial}

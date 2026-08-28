@@ -617,12 +617,18 @@ function ExpenseList({
                         {isManager && (
                           <td className="td">
                             {canEdit ? (
-                              <PickerMenu
-                                value={e.accountId}
-                                placeholder="자동"
-                                options={expenseAccounts.map((a) => ({ id: a.id, label: a.name }))}
-                                onSelect={(id) => setDims(e, { accountId: id })}
-                              />
+                              <select
+                                className="input w-full min-w-[130px] !py-1.5 text-sm"
+                                value={e.accountId ?? ''}
+                                onChange={(ev) => setDims(e, { accountId: ev.target.value })}
+                              >
+                                <option value="">자동</option>
+                                {expenseAccounts.map((a) => (
+                                  <option key={a.id} value={a.id}>
+                                    {a.name}
+                                  </option>
+                                ))}
+                              </select>
                             ) : (
                               <span className="text-ink-mute">{e.account?.name ?? '—'}</span>
                             )}
@@ -631,12 +637,18 @@ function ExpenseList({
                         {isManager && (
                           <td className="td">
                             {canEdit ? (
-                              <PickerMenu
-                                value={e.projectId}
-                                placeholder="없음"
-                                options={(projectsRes.data ?? []).map((p) => ({ id: p.id, label: `${p.code} ${p.name}` }))}
-                                onSelect={(id) => setDims(e, { projectId: id })}
-                              />
+                              <select
+                                className="input w-full min-w-[150px] !py-1.5 text-sm"
+                                value={e.projectId ?? ''}
+                                onChange={(ev) => setDims(e, { projectId: ev.target.value })}
+                              >
+                                <option value="">없음</option>
+                                {(projectsRes.data ?? []).map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.code} {p.name}
+                                  </option>
+                                ))}
+                              </select>
                             ) : (
                               <span className="text-ink-mute">{e.project?.name ?? '—'}</span>
                             )}

@@ -192,6 +192,7 @@ export function Field({
 }
 
 const STATUS_TONE: Record<string, string> = {
+  URGENT: 'bg-red-600 font-bold text-white',
   ACTIVE: 'bg-brand-soft text-brand-deep',
   PLANNED: 'bg-line-soft text-ink-mute',
   ON_HOLD: 'bg-amber-50 text-warn',

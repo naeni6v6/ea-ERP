@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, setToken } from '@/lib/api';
+import { api, IS_DEMO, setToken } from '@/lib/api';
 import { Logo } from '@/components/Logo';
 import type { LoginResult } from '@/lib/types';
 
@@ -38,7 +38,18 @@ export default function LoginPage() {
       {/* 밝은 카드 영역 — 어두운 면 위로 살짝 올라오게 */}
       <div className="flex-1 rounded-t-[28px] bg-line-page px-4 pb-12 pt-9">
         <div className="mx-auto w-full max-w-sm animate-fade-up">
-          <h1 className="mb-5 text-center text-base font-semibold">모션브릿지 ERP 로그인</h1>
+          <h1 className="mb-3 text-center text-base font-semibold">모션브릿지 ERP 로그인</h1>
+
+          {IS_DEMO && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+              <p className="text-sm font-bold text-warn">[읽기 전용 데모 모드]</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-mute">
+                내부 확인용 데모입니다. 아무 이메일·비밀번호로 로그인되며,
+                <br />
+                조회만 가능하고 저장·수정은 되지 않습니다.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={submit} className="card-pad space-y-4">
             <div>
@@ -84,11 +95,13 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs leading-relaxed text-ink-faint">
-            초기 계정 ceo@eacompany.kr / changeme123!
-            <br />
-            로그인 후 비밀번호를 변경하세요
-          </p>
+          {!IS_DEMO && (
+            <p className="mt-4 text-center text-xs leading-relaxed text-ink-faint">
+              초기 계정 ceo@eacompany.kr / changeme123!
+              <br />
+              로그인 후 비밀번호를 변경하세요
+            </p>
+          )}
         </div>
       </div>
     </main>

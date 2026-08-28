@@ -340,6 +340,16 @@ export interface Reserve {
   movements: { id: string; type: string; amount: string; reason: string | null; createdAt: string }[];
 }
 
+/** 입금 예정(들어올 돈) — 자금 달력 */
+export interface PlannedIncome {
+  id: string;
+  title: string;
+  amount: string;
+  dueDate: string;
+  memo: string | null;
+  status: 'SCHEDULED' | 'RECEIVED' | 'CANCELLED';
+}
+
 export interface PlannedPayment {
   id: string;
   kind: 'CONFIRMED' | 'PLANNED';

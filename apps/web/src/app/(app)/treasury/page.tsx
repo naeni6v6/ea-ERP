@@ -11,10 +11,12 @@ import { Empty, ErrorBox, Field, Kpi, Modal, Section, Spinner, StatusBadge } fro
 import type {
   BankAccount,
   BankTransaction,
+  PlannedIncome,
   PlannedPayment,
   Reserve,
   TreasuryKpi,
 } from '@/lib/types';
+import { big } from '@/lib/format';
 
 type Tab = 'accounts' | 'inbox' | 'reserves' | 'planned';
 
@@ -65,6 +67,9 @@ export default function TreasuryPage() {
         <Spinner />
       )}
 
+      {/* ── 자금 달력 — 계좌 잔액 위, 들어올 돈(초록)·나갈 돈(빨강)·입금 예정 등록 ── */}
+      <CashCalendar onChanged={kpiRes.reload} />
+
       <div className="flex gap-0.5 border-b border-line">
         {TABS.map((t) => (
           <button
@@ -86,6 +91,287 @@ export default function TreasuryPage() {
       {tab === 'reserves' && <ReservesTab onChanged={kpiRes.reload} />}
       {tab === 'planned' && <PlannedTab onChanged={kpiRes.reload} />}
     </div>
+  );
+}
+
+/* ───────────────────────── 자금 달력 ───────────────────────── */
+
+const seoulYmdOf = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(iso));
+
+/**
+ * 자금 달력 — 실제 입금(초록)·출금(빨강)과 입금 예정(초록 점선)·지급 예정(빨강 점선)을 날짜별로 본다.
+ * 날짜를 클릭하면 상세와 함께 "입금 예정(잔금일)" 등록 폼이 열린다 (예: 9/30 +500만 '계약 잔금').
+ */
+function CashCalendar({ onChanged }: { onChanged: () => void }) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  const [month, setMonth] = useState(today.slice(0, 7));
+  const [selected, setSelected] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const y = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const from = `${month}-01`;
+  const to = `${month}-${String(last).padStart(2, '0')}`;
+
+  const txns = useAsync(
+    () => api.get<BankTransaction[]>('/treasury/bank-transactions', { from, to, take: 500 }),
+    [from, to],
+  );
+  const incomes = useAsync(() => api.get<PlannedIncome[]>('/treasury/planned-incomes', { from, to }), [from, to]);
+  const payments = useAsync(() => api.get<PlannedPayment[]>('/treasury/planned-payments', { from, to }), [from, to]);
+
+  const reloadAll = () => {
+    txns.reload();
+    incomes.reload();
+    payments.reload();
+    onChanged();
+  };
+
+  // 날짜별 개별 항목 — 금액 + 사유(프로젝트·거래처)를 한 줄 칩으로 보여준다
+  type CalItem = { amt: bigint; dir: 'in' | 'out'; planned: boolean; label: string };
+  const cleanLabel = (s: string) => s.replace(/\[수기\]\s*/g, '').replace(/^[A-Z_]{4,}\s*/, '').trim();
+  const itemsByDay = new Map<string, CalItem[]>();
+  const push = (k: string, it: CalItem) => {
+    if (!itemsByDay.has(k)) itemsByDay.set(k, []);
+    itemsByDay.get(k)!.push(it);
+  };
+  for (const t of txns.data ?? []) {
+    push(seoulYmdOf(t.txnAt), {
+      amt: big(t.amount),
+      dir: t.direction === 'IN' ? 'in' : 'out',
+      planned: false,
+      label: cleanLabel(t.counterpartyRaw || t.descriptionRaw || t.bankAccount?.alias || ''),
+    });
+  }
+  for (const p of incomes.data ?? [])
+    push(p.dueDate.slice(0, 10), { amt: big(p.amount), dir: 'in', planned: true, label: p.title });
+  for (const p of payments.data ?? [])
+    push(p.dueDate.slice(0, 10), { amt: big(p.amount), dir: 'out', planned: true, label: p.title });
+  for (const list of itemsByDay.values()) list.sort((a, b) => (b.amt > a.amt ? 1 : -1));
+
+  const shift = (d: number) => {
+    setMonth(new Date(Date.UTC(y, m - 1 + d, 1)).toISOString().slice(0, 7));
+    setSelected(null);
+  };
+
+  // 월요일 시작 그리드
+  const firstDow = (new Date(`${from}T00:00:00+09:00`).getDay() + 6) % 7;
+  const prevLast = new Date(Date.UTC(y, m - 1, 0)).getUTCDate();
+  const cells: { key?: string; day: number; muted?: boolean }[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push({ day: prevLast - firstDow + 1 + i, muted: true });
+  for (let d = 1; d <= last; d++) cells.push({ key: `${month}-${String(d).padStart(2, '0')}`, day: d });
+  for (let nd = 1; cells.length % 7 !== 0; nd++) cells.push({ day: nd, muted: true });
+
+  const addIncome = async () => {
+    if (!selected || !title.trim() || !amount) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.post('/treasury/planned-incomes', { title: title.trim(), amount, dueDate: selected });
+      setTitle('');
+      setAmount('');
+      reloadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '등록에 실패했습니다');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelIncome = async (id: string) => {
+    setBusy(true);
+    try {
+      await api.patch(`/treasury/planned-incomes/${id}`, { status: 'CANCELLED' });
+      reloadAll();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const dayIncomes = (incomes.data ?? []).filter((p) => p.dueDate.slice(0, 10) === selected);
+  const dayPayments = (payments.data ?? []).filter((p) => p.dueDate.slice(0, 10) === selected);
+  const dayTxns = (txns.data ?? []).filter((t) => seoulYmdOf(t.txnAt) === selected);
+
+  return (
+    <Section
+      title="자금 달력"
+      desc="들어올 돈은 초록, 나갈 돈은 빨강 · 점선은 예정 금액입니다. 날짜를 눌러 입금 예정(잔금일)을 등록하세요."
+      right={
+        <span className="flex items-center gap-1.5">
+          <button className="rounded-md px-2.5 py-1 text-lg leading-none text-ink-mute hover:bg-line-soft" onClick={() => shift(-1)} aria-label="이전 달">
+            ‹
+          </button>
+          <span className="min-w-[132px] text-center text-xl font-bold tracking-tight">
+            {y}년 {m}월
+          </span>
+          <button className="rounded-md px-2.5 py-1 text-lg leading-none text-ink-mute hover:bg-line-soft" onClick={() => shift(1)} aria-label="다음 달">
+            ›
+          </button>
+          <button
+            className="ml-1 rounded-full border border-line px-2.5 py-0.5 text-xs font-medium text-ink-soft hover:bg-line-soft"
+            onClick={() => {
+              setMonth(today.slice(0, 7));
+              setSelected(today);
+            }}
+          >
+            오늘
+          </button>
+        </span>
+      }
+    >
+      <div className="px-4 pb-2 pt-3">
+        <div className="mb-1.5 grid grid-cols-7 text-center">
+          {['월', '화', '수', '목', '금', '토', '일'].map((w, i) => (
+            <span key={w} className={`text-xs font-semibold ${i === 5 ? 'text-blue-500' : i === 6 ? 'text-red-500' : 'text-ink-mute'}`}>
+              {w}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1.5">
+          {cells.map((c, i) => {
+            const items = c.key ? (itemsByDay.get(c.key) ?? []) : [];
+            const isSel = c.key === selected;
+            const isToday = c.key === today;
+            return (
+              <button
+                key={i}
+                disabled={!c.key}
+                onClick={() => c.key && setSelected(isSel ? null : c.key)}
+                className={`flex min-h-[108px] flex-col items-stretch gap-1 rounded-lg border-2 p-2 text-left transition-colors ${
+                  isSel
+                    ? 'border-brand bg-brand-soft shadow-sm'
+                    : c.key
+                      ? 'border-line bg-white hover:border-brand/60 hover:shadow-sm'
+                      : 'border-line-soft/60 bg-line-soft/30'
+                }`}
+              >
+                <span
+                  className={`font-num text-sm font-semibold leading-none ${
+                    c.muted
+                      ? 'text-ink-faint/40'
+                      : isToday
+                        ? 'inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand text-white'
+                        : 'text-ink-soft'
+                  }`}
+                >
+                  {c.day}
+                </span>
+                {items.length > 0 && (
+                  <span className="flex flex-col gap-1">
+                    {items.slice(0, 3).map((it, j) => (
+                      <span
+                        key={j}
+                        className={`flex items-center gap-1 overflow-hidden whitespace-nowrap rounded-md px-1.5 py-0.5 leading-tight ${
+                          it.planned
+                            ? it.dir === 'in'
+                              ? 'border-2 border-dashed border-emerald-400 bg-emerald-50/50'
+                              : 'border-2 border-dashed border-red-300 bg-red-50/50'
+                            : it.dir === 'in'
+                              ? 'bg-emerald-100'
+                              : 'bg-red-100'
+                        }`}
+                        title={`${it.dir === 'in' ? '+' : '-'}${num(it.amt)}원 · ${it.label}${it.planned ? ' (예정)' : ''}`}
+                      >
+                        <span
+                          className={`shrink-0 font-num text-[13px] font-bold ${
+                            it.dir === 'in' ? (it.planned ? 'text-emerald-600' : 'text-emerald-700') : it.planned ? 'text-red-500' : 'text-red-600'
+                          }`}
+                        >
+                          {it.dir === 'in' ? '+' : '-'}
+                          {compact(it.amt)}
+                        </span>
+                        <span className="truncate text-[11px] font-medium text-ink-soft">{it.label || '—'}</span>
+                      </span>
+                    ))}
+                    {items.length > 3 && (
+                      <span className="px-1 text-[11px] font-medium text-ink-faint">+{items.length - 3}건 더</span>
+                    )}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {selected && (
+          <div className="mt-3 rounded-xl border border-line bg-line-soft/30 p-4">
+            <p className="mb-2.5 text-sm font-semibold">
+              {selected.replace(/-/g, '.')} <span className="font-normal text-ink-mute">상세</span>
+            </p>
+            <div className="space-y-1.5">
+              {dayTxns.map((t) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate text-ink-soft">
+                    {t.direction === 'IN' ? '입금' : '출금'} · {t.counterpartyRaw || t.descriptionRaw || t.bankAccount?.alias || '—'}
+                  </span>
+                  <span className={`font-num font-semibold ${t.direction === 'IN' ? 'text-pos' : 'text-neg'}`}>
+                    {t.direction === 'IN' ? '+' : '-'}
+                    {num(t.amount)}원
+                  </span>
+                </div>
+              ))}
+              {dayPayments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate text-ink-soft">
+                    지급 예정 · {p.title}
+                    <span className="ml-1 text-xs text-ink-faint">({p.kind === 'CONFIRMED' ? '확정' : '계획'})</span>
+                  </span>
+                  <span className="font-num text-neg/80">-{num(p.amount)}원</span>
+                </div>
+              ))}
+              {dayIncomes.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate text-ink-soft">
+                    들어올 예정 · {p.title}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-num font-medium text-emerald-600">+{num(p.amount)}원</span>
+                    <button
+                      className="text-xs text-ink-faint hover:text-neg"
+                      onClick={() => cancelIncome(p.id)}
+                      disabled={busy}
+                      title="입금 예정 취소"
+                    >
+                      취소
+                    </button>
+                  </span>
+                </div>
+              ))}
+              {dayTxns.length === 0 && dayPayments.length === 0 && dayIncomes.length === 0 && (
+                <p className="text-xs text-ink-faint">이 날짜의 입출금·예정 내역이 없습니다.</p>
+              )}
+            </div>
+
+            {/* 입금 예정 등록 — 잔금일에 +금액 */}
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+              <span className="text-xs font-semibold text-emerald-700">+ 들어올 예정 등록</span>
+              <input
+                className="input w-44 !py-1.5 text-sm"
+                placeholder="예: 계약 잔금"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={busy}
+              />
+              <div className="w-40">
+                <MoneyInput value={amount} onChange={setAmount} disabled={busy} />
+              </div>
+              <button
+                className="btn-primary !py-1.5 text-xs"
+                onClick={addIncome}
+                disabled={busy || !title.trim() || !amount}
+              >
+                {busy ? '등록 중…' : '등록'}
+              </button>
+              {error && <span className="text-xs text-neg">{error}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }
 

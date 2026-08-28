@@ -11,7 +11,7 @@ import { fetchMonthlyPnl } from '@/lib/monthly';
 import { BreakdownTable } from '@/components/BreakdownTable';
 import { CompareBars, TrendChart } from '@/components/charts';
 import { ProjectBoard, type ProjectBoardHandle } from '@/components/ProjectBoard';
-import { ProjectCreateModal, ProjectUploadModal } from '@/components/ProjectModals';
+import { ProjectCreateModal } from '@/components/ProjectModals';
 import { ErrorBox, Kpi, Progress, Section, Spinner } from '@/components/ui';
 import type { Dashboard, Project, ProjectFinance } from '@/lib/types';
 
@@ -23,7 +23,6 @@ export default function DashboardPage() {
   const q = f.query;
   const [projStatus, setProjStatus] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(false);
   const boardRef = useRef<ProjectBoardHandle>(null);
   const [boardDirty, setBoardDirty] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
@@ -118,17 +117,10 @@ export default function DashboardPage() {
             {isAdmin && (
               <>
                 <button
-                  className="btn-ghost border border-line !px-3 !py-1.5 text-xs"
+                  className="btn-primary !px-3 !py-1.5 text-xs"
                   onClick={() => setCreateOpen(true)}
                 >
                   + 프로젝트 생성
-                </button>
-                <button
-                  className="btn-primary !px-3.5 !py-1.5 text-xs font-semibold shadow-glow"
-                  onClick={() => setUploadOpen(true)}
-                  title="CSV·TSV·JSON 파일로 여러 프로젝트를 한 번에 등록"
-                >
-                  ⬆ 프로젝트 업로드
                 </button>
                 <button
                   className={`!px-3 !py-1.5 text-xs ${
@@ -360,15 +352,6 @@ export default function DashboardPage() {
           projList.reload();
           reload();
         }}
-      />
-      <ProjectUploadModal
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        onSaved={() => {
-          projList.reload();
-          reload();
-        }}
-        existingCodes={(projList.data ?? []).map((p) => p.code)}
       />
     </div>
   );

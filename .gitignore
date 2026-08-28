@@ -21,3 +21,8 @@ _archive/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Netlify demo build artifacts
+netlify-demo/
+.next-demo/
+apps/web/public/demo-fixtures.json

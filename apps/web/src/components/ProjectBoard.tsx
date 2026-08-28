@@ -50,12 +50,16 @@ function Tag({ name }: { name: string }) {
 
 /** 상태 색 — 진행률 옆 작은 점으로만 표시한다 (라벨은 툴팁) */
 const STATUS_DOT: Record<string, string> = {
+  URGENT: '#e60000',
   PLANNED: '#a9a099',
   ACTIVE: '#2a78d6',
   ON_HOLD: '#c9820f',
   DONE: '#2f8f5b',
   CANCELLED: '#c8c2bb',
 };
+
+/** 정렬 우선순위 — 긴급 > 지연 > 나머지 */
+const projectRank = (p: Project) => (p.status === 'URGENT' ? 0 : p.isDelayed ? 1 : 2);
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -129,8 +133,25 @@ function TaskPanel({
           <Spinner label="할 일 불러오는 중…" />
         ) : (
           <div className="space-y-1.5">
+            {/* 입력창을 맨 위 + 자동 포커스 — 토글 열자마자 바로 타이핑해서 추가 */}
+            <div className="flex gap-2 pb-1">
+              <input
+                autoFocus
+                className="input !py-1.5 text-sm"
+                placeholder="+ 할 일 입력 후 Enter로 바로 추가"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') add();
+                }}
+                disabled={adding}
+              />
+              <button className="btn-primary !py-1.5 text-xs" onClick={add} disabled={adding || !title.trim()}>
+                추가
+              </button>
+            </div>
             {tasks.length === 0 && (
-              <p className="text-xs text-ink-mute">아직 할 일이 없습니다. 아래에서 추가하세요.</p>
+              <p className="text-xs text-ink-mute">아직 할 일이 없습니다. 위에서 입력해 추가하세요.</p>
             )}
             {tasks.map((t) => (
               <label
@@ -153,21 +174,6 @@ function TaskPanel({
                 )}
               </label>
             ))}
-            <div className="flex gap-2 pt-1">
-              <input
-                className="input !py-1.5 text-sm"
-                placeholder="+ 할 일 추가 — Enter"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') add();
-                }}
-                disabled={adding}
-              />
-              <button className="btn-primary !py-1.5 text-xs" onClick={add} disabled={adding || !title.trim()}>
-                추가
-              </button>
-            </div>
           </div>
         )}
       </td>
@@ -258,8 +264,13 @@ function MoneyRow({ p, fin, colSpan }: { p: Project; fin?: ProjectFinance; colSp
     { label: '예산', v: p.budgetAmount, hint: '집행 가능 예산', cls: 'text-ink' },
   ];
   return (
-    <tr className="bg-line-soft/50">
-      <td colSpan={colSpan} className="px-4 py-3">
+    // 금액 상세 펼침 — 좌측 브랜드 액센트 + 진한 아래 구분선으로 다른 행과 확실히 구분한다
+    <tr className="border-y-2 border-brand/30 bg-brand-soft/40">
+      <td colSpan={colSpan} className="border-l-4 border-brand px-4 py-4">
+        <div className="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-brand-deep">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+          {p.name} · 금액 상세
+        </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           {base.map((it) => (
             <div key={it.label} className="rounded-lg border border-line bg-white px-3 py-2" title={it.hint}>
@@ -319,9 +330,9 @@ export const ProjectBoard = forwardRef<
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  // 지연 프로젝트가 항상 위로 — 그 안에서는 서버 저장 순서(sortOrder) 유지
+  // 긴급 > 지연 > 나머지 순으로 항상 위로 — 그 안에서는 서버 저장 순서(sortOrder) 유지
   const initialIds = useMemo(
-    () => [...projects].sort((a, b) => Number(b.isDelayed) - Number(a.isDelayed)).map((p) => p.id),
+    () => [...projects].sort((a, b) => projectRank(a) - projectRank(b)).map((p) => p.id),
     [projects],
   );
   const initialKey = initialIds.join('|');

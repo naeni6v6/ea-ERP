@@ -88,6 +88,28 @@ export class TreasuryService {
   }
 
   // ───── 지급예정자금 ─────
+  // ───── 입금 예정 (들어올 돈 — 자금 달력) ─────
+  listPlannedIncome(cid: string, q: { status?: string; from?: string; to?: string }) {
+    return this.prisma.plannedIncome.findMany({
+      where: { companyId: cid, status: (q.status as any) ?? 'SCHEDULED', dueDate: { gte: q.from ? toDateOnly(q.from) : undefined, lte: q.to ? toDateOnly(q.to) : undefined } },
+      orderBy: { dueDate: 'asc' },
+    });
+  }
+  async createPlannedIncome(u: AuthUser, d: { title: string; amount: string | number; dueDate: string; memo?: string }) {
+    const amount = won(d.amount);
+    if (amount <= 0n) throw new BadRequestException('금액은 0보다 커야 합니다');
+    const p = await this.prisma.plannedIncome.create({ data: { companyId: u.companyId, title: d.title, amount, dueDate: toDateOnly(d.dueDate), memo: d.memo } });
+    await this.audit.log({ companyId: u.companyId, actorId: u.id, entity: 'PlannedIncome', entityId: p.id, action: 'CREATE', after: d });
+    return p;
+  }
+  async updatePlannedIncome(u: AuthUser, id: string, d: { status?: string; title?: string; memo?: string }) {
+    const before = await this.prisma.plannedIncome.findFirst({ where: { id, companyId: u.companyId } });
+    if (!before) throw new NotFoundException();
+    const p = await this.prisma.plannedIncome.update({ where: { id }, data: { status: d.status as any, title: d.title, memo: d.memo } });
+    await this.audit.log({ companyId: u.companyId, actorId: u.id, entity: 'PlannedIncome', entityId: id, action: 'UPDATE', before: { status: before.status }, after: { status: p.status } });
+    return p;
+  }
+
   listPlanned(cid: string, q: { status?: string; kind?: string; from?: string; to?: string }) {
     return this.prisma.plannedPayment.findMany({ where: { companyId: cid, status: (q.status as any) ?? 'SCHEDULED', kind: q.kind as any, dueDate: { gte: q.from ? toDateOnly(q.from) : undefined, lte: q.to ? toDateOnly(q.to) : undefined } }, include: { department: { select: { name: true } }, project: { select: { name: true } }, businessType: { select: { name: true } } }, orderBy: { dueDate: 'asc' } });
   }
