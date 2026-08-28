@@ -85,7 +85,7 @@ export default function DashboardPage() {
     <div className="space-y-5">
       <div className="flex items-baseline justify-between gap-3">
         <span className="flex items-baseline gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">
+          <h1 className="page-title">
             {isCeo ? '경영 대시보드' : isAdmin ? '부문 대시보드' : '내 현황'}
           </h1>
           <span className="badge bg-amber-50 text-warn">* 샘플 데이터입니다</span>

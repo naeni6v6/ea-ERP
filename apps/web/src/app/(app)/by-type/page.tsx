@@ -37,7 +37,7 @@ export default function ByTypePage() {
     <div className="space-y-5">
       <div className="flex items-baseline justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">
+          <h1 className="page-title">
             유형별 손익 <span className="badge ml-1 bg-amber-50 text-warn">* 샘플 데이터입니다</span>
           </h1>
           <p className="mt-1 text-xs text-ink-faint">

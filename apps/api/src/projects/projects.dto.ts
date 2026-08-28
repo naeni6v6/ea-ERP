@@ -8,6 +8,11 @@ export class ProjectDto {
   @IsOptional() contractAmount?: string | number; @IsOptional() expectedRevenue?: string | number; @IsOptional() budgetAmount?: string | number;
   @IsOptional() targetCost?: string | number; @IsOptional() targetProfit?: string | number; @IsOptional() @IsBoolean() financeVisibleToMembers?: boolean;
 }
+export class WorkLogDto {
+  /** YYYY-MM-DD */
+  @IsString() date: string;
+  @IsString() content: string;
+}
 export class ReorderDto {
   /** 보드 표시 순서대로 나열한 프로젝트 id — index가 곧 sortOrder */
   @IsArray() @IsString({ each: true }) ids: string[];

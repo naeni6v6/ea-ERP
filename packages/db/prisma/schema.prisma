@@ -34,6 +34,7 @@ model Company {
   corporateCards CorporateCard[]
   cardExpenses   CardExpense[]
   notices       Notice[]
+  workLogs      WorkLog[]
 }
 
 /// 오늘의 공지 — 대시보드 상단 현수막 배너. 날짜당 1건, 확인해야 다른 업무 진행 가능
@@ -129,6 +130,24 @@ model User {
   ownedLines  JournalLine[]
   auditLogs   AuditLog[]
   heldCards   CorporateCard[] @relation("CardHolder")
+  workLogs    WorkLog[]
+}
+
+/// 일일 업무 일지 — "그날 뭐 했는지" 자유 기록. 사람·날짜당 1건
+model WorkLog {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  logDate   DateTime @db.Date
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([userId, logDate])
+  @@index([companyId, logDate])
 }
 
 /// Role × Scope 조합. 한 사용자가 여러 행을 가질 수 있음.
@@ -245,6 +264,8 @@ model Task {
   priority    String    @default("NORMAL")
   status      String    @default("TODO") // CodeValue(TASK_STATUS)
   isDone      Boolean   @default(false)
+  /// 완료 처리 시각 — 일별 완료 현황 차트용 (체크 해제 시 null)
+  doneAt      DateTime?
   /// 향후 가중치 진행률용 (기본 1)
   weight      Int       @default(1)
   sortOrder   Int       @default(0)

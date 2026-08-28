@@ -37,8 +37,24 @@
 }
 
 @layer components {
+  /* 페이지 타이틀 — 브랜드 세로바 액센트로 강조하고 살짝 우측으로 (gowid 스타일) */
+  .page-title {
+    @apply relative pl-4 text-[26px] font-semibold tracking-tight;
+  }
+  .page-title::before {
+    content: '';
+    @apply absolute left-0 top-1/2 h-[1.1em] w-1.5 -translate-y-1/2 rounded-full bg-gradient-to-b from-brand to-brand-dark;
+  }
+  /* 스크롤은 되지만 스크롤바는 그리지 않는다 (사이드바 등) */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
   .card {
-    @apply rounded-xl border border-line bg-white shadow-soft;
+    @apply rounded-2xl border border-line bg-white shadow-soft;
   }
   .card-pad {
     @apply card p-5;
@@ -58,7 +74,7 @@
            disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100;
   }
   .btn-primary {
-    @apply btn bg-brand text-white shadow-glow hover:bg-brand-dark;
+    @apply btn bg-gradient-to-b from-brand to-brand-dark text-white shadow-glow hover:from-brand-dark hover:to-brand-dark;
   }
   .btn-ghost {
     @apply btn border border-line bg-white text-ink-soft hover:border-ink-faint hover:bg-line-soft;
@@ -81,5 +97,30 @@
   /* 로고는 검은 배경 위 글로우 이미지 — screen 블렌드로 어두운 면에 자연스럽게 얹는다 */
   .logo-blend {
     mix-blend-mode: screen;
+  }
+}
+
+/* PDF 출력(브라우저 인쇄) — 현재 페이지 본문만 종이에 담는다 */
+@media print {
+  aside,
+  header,
+  [role='alert'],
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .lg\:pl-\[184px\] {
+    padding-left: 0 !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    animation: none !important;
+  }
+  .card {
+    box-shadow: none !important;
+    break-inside: avoid;
   }
 }

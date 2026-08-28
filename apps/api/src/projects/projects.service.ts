@@ -125,12 +125,26 @@ export class ProjectsService {
     await this.scope.assertProject(user, projectId);
     return this.prisma.task.findMany({ where: { projectId, deletedAt: null }, include: { assignee: { select: { id: true, name: true } } }, orderBy: [{ isDone: 'asc' }, { sortOrder: 'asc' }, { dueDate: 'asc' }] });
   }
-  async myTasks(user: AuthUser) {
-    return this.prisma.task.findMany({ where: { assigneeId: user.id, deletedAt: null, project: { deletedAt: null } }, include: { project: { select: { id: true, name: true, code: true } } }, orderBy: [{ isDone: 'asc' }, { dueDate: 'asc' }] });
+  /**
+   * 내 업무 목록. 대표(CEO)는 scope=all(전 직원) 또는 userId(특정 직원)로 회사 전체를 볼 수 있다.
+   */
+  async myTasks(user: AuthUser, q?: { scope?: string; userId?: string }) {
+    let assignee: Prisma.TaskWhereInput = { assigneeId: user.id };
+    if (q?.scope === 'all' || (q?.userId && q.userId !== user.id)) {
+      const s = await this.scope.resolve(user);
+      if (!s.isCeo) throw new ForbiddenException('전체 직원 업무는 대표만 볼 수 있습니다');
+      assignee = q.userId ? { assigneeId: q.userId } : {};
+    }
+    return this.prisma.task.findMany({
+      where: { ...assignee, deletedAt: null, project: { deletedAt: null, companyId: user.companyId } },
+      include: { project: { select: { id: true, name: true, code: true } }, assignee: { select: { id: true, name: true } } },
+      orderBy: [{ isDone: 'asc' }, { dueDate: 'asc' }],
+    });
   }
   async createTask(user: AuthUser, projectId: string, d: TaskDto) {
     await this.scope.assertProject(user, projectId);
-    const t = await this.prisma.task.create({ data: { projectId, title: d.title, description: d.description, assigneeId: d.assigneeId ?? null, dueDate: d.dueDate ? toDateOnly(d.dueDate) : null, priority: d.priority ?? 'NORMAL', status: d.status ?? 'TODO', isDone: d.isDone ?? d.status === 'DONE', weight: d.weight ?? 1, sortOrder: d.sortOrder ?? 0 } });
+    const isDone = d.isDone ?? d.status === 'DONE';
+    const t = await this.prisma.task.create({ data: { projectId, title: d.title, description: d.description, assigneeId: d.assigneeId ?? null, dueDate: d.dueDate ? toDateOnly(d.dueDate) : null, priority: d.priority ?? 'NORMAL', status: d.status ?? 'TODO', isDone, doneAt: isDone ? new Date() : null, weight: d.weight ?? 1, sortOrder: d.sortOrder ?? 0 } });
     return t;
   }
   async updateTask(user: AuthUser, taskId: string, d: Partial<TaskDto>) {
@@ -141,8 +155,52 @@ export class ProjectsService {
     if (d.dueDate !== undefined) data.dueDate = d.dueDate ? toDateOnly(d.dueDate) : null;
     if (d.status === 'DONE') data.isDone = true; else if (d.status && d.isDone === undefined) data.isDone = false;
     if (d.isDone === true && !d.status) data.status = 'DONE';
+    // 완료 시각 기록 — 일별 완료 현황 차트용 (완료→기록, 해제→초기화)
+    if (data.isDone === true && !t.isDone) data.doneAt = new Date();
+    else if (data.isDone === false) data.doneAt = null;
     return this.prisma.task.update({ where: { id: taskId }, data });
   }
+  // ───── 일일 업무 일지 ─────
+  /**
+   * 업무 일지 조회 — date(하루) 또는 from/to(캘린더용 기간).
+   * 기본은 본인 것만, 대표(CEO)는 scope=all(전 직원) 또는 userId로 열람.
+   */
+  async workLogs(user: AuthUser, q: { date?: string; from?: string; to?: string; scope?: string; userId?: string }) {
+    const ymd = /^\d{4}-\d{2}-\d{2}$/;
+    let dateFilter: Prisma.WorkLogWhereInput;
+    if (q.from && q.to && ymd.test(q.from) && ymd.test(q.to)) dateFilter = { logDate: { gte: toDateOnly(q.from), lte: toDateOnly(q.to) } };
+    else if (q.date && ymd.test(q.date)) dateFilter = { logDate: toDateOnly(q.date) };
+    else throw new ForbiddenException('date 또는 from/to(YYYY-MM-DD)가 필요합니다');
+    let userFilter: Prisma.WorkLogWhereInput = { userId: user.id };
+    if (q.scope === 'all' || (q.userId && q.userId !== user.id)) {
+      const s = await this.scope.resolve(user);
+      if (!s.isCeo) throw new ForbiddenException('다른 직원의 업무 일지는 대표만 볼 수 있습니다');
+      userFilter = q.userId ? { userId: q.userId } : {};
+    }
+    return this.prisma.workLog.findMany({
+      where: { companyId: user.companyId, ...dateFilter, ...userFilter },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: [{ logDate: 'asc' }, { updatedAt: 'desc' }],
+    });
+  }
+
+  /** 본인 일지 저장 — 날짜당 1건 upsert, 내용을 비우면 삭제 */
+  async setWorkLog(user: AuthUser, date: string, content: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '')) throw new ForbiddenException('date는 YYYY-MM-DD 형식이어야 합니다');
+    const logDate = toDateOnly(date);
+    const v = (content ?? '').trim();
+    if (!v) {
+      await this.prisma.workLog.deleteMany({ where: { userId: user.id, logDate } });
+      return null;
+    }
+    return this.prisma.workLog.upsert({
+      where: { userId_logDate: { userId: user.id, logDate } },
+      create: { companyId: user.companyId, userId: user.id, logDate, content: v },
+      update: { content: v },
+      include: { user: { select: { id: true, name: true } } },
+    });
+  }
+
   async removeTask(user: AuthUser, taskId: string) {
     const t = await this.prisma.task.findFirst({ where: { id: taskId, deletedAt: null } });
     if (!t) throw new NotFoundException();

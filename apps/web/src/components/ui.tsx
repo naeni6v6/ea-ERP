@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { compact, num, pct, signClass } from '@/lib/format';
 import type { Money } from '@/lib/format';
 
@@ -44,9 +45,9 @@ export function Section({
 }) {
   return (
     <section className="card overflow-hidden">
-      <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+      <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold">{title}</h2>
+          <h2 className="text-lg font-bold tracking-tight">{title}</h2>
           {desc && <p className="mt-1 text-xs leading-relaxed text-ink-faint">{desc}</p>}
         </div>
         {right}
@@ -73,14 +74,16 @@ export function Kpi({
   const toneClass =
     tone === 'sign' ? signClass(value) : tone === 'brand' ? 'text-brand-deep' : 'text-ink';
   return (
-    <div className="card-pad transition-shadow hover:shadow-lift" title={hint}>
+    <div className="card p-4 transition-shadow hover:shadow-lift" title={hint}>
       <div className="text-xs font-medium text-ink-mute">{label}</div>
-      <div className={`mt-2 font-num text-[28px] font-semibold leading-none tracking-tight ${toneClass}`}>
-        {compact(value)}
+      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className={`font-num text-[22px] font-bold leading-none tracking-tight ${toneClass}`}>
+          {compact(value)}
+        </span>
+        <span className="font-num text-[12px] text-ink-faint">{num(value)}원</span>
       </div>
-      <div className="mt-1.5 font-num text-[13px] text-ink-faint">{num(value)}원</div>
       {sub && (
-        <div className="mt-3 border-t border-line-soft pt-2.5 text-xs leading-relaxed text-ink-mute">
+        <div className="mt-2 border-t border-line-soft pt-1.5 text-xs leading-snug text-ink-mute">
           {sub}
         </div>
       )}
@@ -136,7 +139,9 @@ export function Modal({
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  // portal로 body에 직접 붙인다 — 조상의 transform/filter(예: main의 fade-up 애니메이션)가
+  // fixed 기준을 바꿔 모달이 화면 밖에 그려지는 문제를 원천 차단
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
       <div
         className={`card my-auto w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} shadow-xl`}
@@ -158,7 +163,8 @@ export function Modal({
         </header>
         <div className="px-5 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

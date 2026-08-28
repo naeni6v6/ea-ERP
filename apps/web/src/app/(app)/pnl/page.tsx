@@ -56,16 +56,24 @@ export default function PnlPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">손익</h1>
-        <span className="font-num text-xs text-ink-faint">
-          {pnl.range.from} ~ {pnl.range.to}
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="page-title">손익</h1>
+        <span className="flex items-center gap-3">
+          <span className="font-num text-xs text-ink-faint">
+            {pnl.range.from} ~ {pnl.range.to}
+          </span>
+          <button
+            className="btn-ghost no-print !px-3 !py-1.5 text-xs"
+            onClick={() => window.print()}
+            title="브라우저 인쇄 창에서 대상: 'PDF로 저장'을 선택하면 PDF 파일로 저장됩니다"
+          >
+            🖨 PDF 출력
+          </button>
         </span>
       </div>
 
       <Section
         title="손익계산서"
-        desc="원장(JournalLine)의 REVENUE/EXPENSE 라인 집계 — 현금 흐름과 무관합니다"
         right={
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
             <input

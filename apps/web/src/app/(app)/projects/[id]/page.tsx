@@ -97,7 +97,7 @@ export default function ProjectDetailPage() {
         </Link>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <span className="font-num text-sm text-ink-faint">{p.code}</span>
-          <h1 className="text-lg font-semibold tracking-tight">{p.name}</h1>
+          <h1 className="page-title">{p.name}</h1>
           <StatusBadge status={p.status} label={labelOf('PROJECT_STATUS', p.status)} />
           {p.isDelayed && <span className="badge bg-red-50 text-neg">지연</span>}
           {isAdmin && (

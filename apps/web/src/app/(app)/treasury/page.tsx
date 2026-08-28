@@ -37,7 +37,7 @@ export default function TreasuryPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-lg font-semibold tracking-tight">자금</h1>
+      <h1 className="page-title">자금</h1>
 
       {kpiRes.error ? (
         <ErrorBox message={kpiRes.error} onRetry={kpiRes.reload} />

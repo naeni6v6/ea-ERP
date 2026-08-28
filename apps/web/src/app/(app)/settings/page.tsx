@@ -12,9 +12,18 @@ type Tab = 'users' | 'audit';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('users');
+  const { isCeo } = useSession();
+  // 메뉴는 대표에게만 보이지만, URL 직접 접근도 막는다
+  if (!isCeo)
+    return (
+      <div className="card-pad mx-auto max-w-sm text-center text-sm">
+        <p className="font-medium">설정은 대표만 접근할 수 있습니다</p>
+        <p className="mt-1 text-ink-mute">권한이 필요하면 대표에게 요청하세요.</p>
+      </div>
+    );
   return (
     <div className="space-y-5">
-      <h1 className="text-lg font-semibold tracking-tight">설정</h1>
+      <h1 className="page-title">설정</h1>
       <div className="flex gap-0.5 border-b border-line">
         {(
           [

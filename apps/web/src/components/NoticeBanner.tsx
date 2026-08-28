@@ -7,10 +7,10 @@ import { useSession } from '@/lib/session';
 import type { Notice } from '@/lib/types';
 
 /**
- * 오늘의 공지 현수막 — 옅은 빨간색 전면 배너.
- * [확인했습니다]를 누르기 전까지는 아래 업무 화면이 흐려지고 클릭이 막힌다(onBlockChange).
- * 확인 여부는 브라우저별(localStorage)로 기억하고, 공지 내용이 수정되면 다시 확인해야 한다.
- * CEO/관리자는 ✎로 그 자리에서 등록·수정하고, 내용을 비워 저장하면 삭제된다.
+ * 오늘의 공지 — 화면 가로를 꽉 채우는 빨간 띠 배너 (레이아웃의 헤더 바로 아래에 배치).
+ * 확인 전에는 선명한 빨강 + 아래 업무 화면 차단(onBlockChange), 확인 후에는 옅은 띠로 남는다.
+ * 확인 여부는 브라우저별(localStorage)로 기억하고 내용이 수정되면 재확인해야 한다.
+ * CEO/관리자는 ✎로 그 자리에서 등록·수정, 내용을 비워 게시하면 삭제.
  */
 const ackKey = (n: Notice) => `ea_notice_ack_${n.id}_${n.updatedAt}`;
 
@@ -63,7 +63,7 @@ export function NoticeBanner({ onBlockChange }: { onBlockChange?: (blocked: bool
     }
   };
 
-  // 공지 없음 — 관리자에게만 등록 스트립 노출
+  // 공지 없음 — 관리자에게만 얇은 등록 띠
   if (!notice && !editing) {
     if (!isAdmin || res.loading) return null;
     return (
@@ -72,35 +72,43 @@ export function NoticeBanner({ onBlockChange }: { onBlockChange?: (blocked: bool
           setText('');
           setEditing(true);
         }}
-        className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line px-4 py-2 text-xs text-ink-faint transition-colors hover:border-red-300 hover:text-red-500"
+        className="flex w-full items-center justify-center gap-1.5 border-b border-dashed border-line bg-white py-1.5 text-xs text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500"
       >
-        📢 오늘의 공지 등록
+        <span className="text-[13px] leading-none">+</span> 오늘의 공지 등록
       </button>
     );
   }
 
-  // 등록/수정 입력 모드
+  // 등록/수정 입력 모드 — 같은 전체 폭 띠
   if (editing) {
     return (
-      <div className="mb-5 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-        <span className="shrink-0 rounded-md bg-red-600 px-2.5 py-1 text-xs font-bold text-white">📢 오늘의 공지</span>
-        <input
+      <div className="flex w-full items-center gap-3 bg-red-600 py-2 pl-5 pr-3">
+        <span className="shrink-0 text-xs font-bold text-white/85">📢 오늘의 공지</span>
+        <textarea
           autoFocus
-          className="input flex-1 border-red-200 bg-white text-sm"
+          rows={Math.min(4, Math.max(1, text.split('\n').length))}
+          className="flex-1 resize-none rounded-md border-0 bg-white/95 px-3 py-1.5 text-sm leading-relaxed text-ink outline-none ring-0 placeholder:text-ink-faint"
           value={text}
-          placeholder="전 직원에게 보여줄 금일 공지 — 비우고 저장하면 삭제됩니다"
+          placeholder="전 직원에게 보여줄 금일 공지 — Shift+Enter 줄바꿈, Enter 게시, 비우고 게시하면 삭제"
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') save();
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              save();
+            }
             if (e.key === 'Escape') setEditing(false);
           }}
           disabled={busy}
         />
-        <button className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setEditing(false)} disabled={busy}>
+        <button
+          className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+          onClick={() => setEditing(false)}
+          disabled={busy}
+        >
           취소
         </button>
         <button
-          className="rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          className="shrink-0 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-60"
           onClick={save}
           disabled={busy}
         >
@@ -112,38 +120,58 @@ export function NoticeBanner({ onBlockChange }: { onBlockChange?: (blocked: bool
 
   if (!notice) return null;
 
+  // 확인 후 — 옅은 빨간 띠로 조용히 유지
+  if (!blocked)
+    return (
+      <div className="group flex w-full items-center gap-3 bg-red-50 py-2 pl-5 pr-3" role="alert">
+        <span className="shrink-0 text-sm font-bold text-red-400">📢 오늘의 공지</span>
+        <p className="flex-1 whitespace-pre-line text-center text-base font-semibold text-red-800/80">{notice.content}</p>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              setText(notice.content);
+              setEditing(true);
+            }}
+            className="shrink-0 rounded-full p-1.5 text-red-300 opacity-0 transition-all hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
+            title="공지 수정"
+          >
+            ✎
+          </button>
+        )}
+        <span className="shrink-0 pr-2 text-xs text-red-300">✓ 확인함</span>
+      </div>
+    );
+
+  // 미확인 — 선명한 빨강, 가로 꽉 채움
   return (
-    <div
-      className={`mb-5 flex items-center gap-4 rounded-xl border px-5 py-3 ${
-        blocked ? 'border-red-300 bg-red-50 shadow-md ring-2 ring-red-200/70' : 'border-red-200 bg-red-50/70'
-      }`}
-      role="alert"
-    >
-      <span className="shrink-0 rounded-md bg-red-600 px-2.5 py-1 text-xs font-bold text-white">📢 오늘의 공지</span>
-      <p className="flex-1 text-center text-sm font-semibold leading-relaxed text-red-900">{notice.content}</p>
+    <div className="flex w-full items-center gap-3 bg-red-600 py-2.5 pl-5 pr-3 shadow-[0_4px_16px_-6px_rgba(220,38,38,0.5)]" role="alert">
+      <span className="flex shrink-0 items-center gap-2">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+        </span>
+        <span className="whitespace-nowrap text-base font-bold text-white/90">📢 오늘의 공지</span>
+      </span>
+      <p className="flex-1 whitespace-pre-line text-center text-lg font-bold tracking-tight text-white">{notice.content}</p>
       {isAdmin && (
         <button
           onClick={() => {
             setText(notice.content);
             setEditing(true);
           }}
-          className="shrink-0 rounded p-1 text-red-400 transition-colors hover:bg-red-100 hover:text-red-600"
+          className="shrink-0 rounded-full p-1.5 text-white/60 transition-colors hover:bg-white/15 hover:text-white"
           title="공지 수정"
         >
           ✎
         </button>
       )}
-      {blocked ? (
-        <button
-          onClick={ack}
-          className="shrink-0 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700"
-          title="확인해야 아래 업무 화면을 사용할 수 있습니다"
-        >
-          확인했습니다
-        </button>
-      ) : (
-        <span className="shrink-0 text-xs text-red-400">✓ 확인함</span>
-      )}
+      <button
+        onClick={ack}
+        className="shrink-0 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
+        title="확인해야 아래 업무 화면을 사용할 수 있습니다"
+      >
+        확인했습니다
+      </button>
     </div>
   );
 }

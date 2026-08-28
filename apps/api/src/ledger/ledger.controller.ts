@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JournalService } from './journal.service';
@@ -25,4 +25,12 @@ export class LedgerController {
   @Post('journal') @Roles(Role.CEO, Role.ADMIN) create(@CurrentUser() u: AuthUser, @Body() d: CreateEntryDto) { return this.journal.create(u, d); }
   @Get('journal/:id') @Roles(Role.CEO, Role.ADMIN) get(@CurrentUser() u: AuthUser, @Param('id') id: string) { return this.journal.get(u, id); }
   @Post('journal/:id/void') @Roles(Role.CEO, Role.ADMIN) void(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body('reason') reason: string) { return this.journal.void(u, id, reason); }
+
+  /** 거래처 지정/변경 — 분개 자체는 불변, 거래처 라벨만 보완한다 */
+  @Patch('journal/:id/partner') @Roles(Role.CEO, Role.ADMIN)
+  async setPartner(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body('partnerId') partnerId?: string | null) {
+    const e = await this.prisma.journalEntry.findFirst({ where: { id, companyId: u.companyId } });
+    if (!e) throw new NotFoundException();
+    return this.prisma.journalEntry.update({ where: { id }, data: { partnerId: partnerId || null }, include: { partner: { select: { name: true } } } });
+  }
 }

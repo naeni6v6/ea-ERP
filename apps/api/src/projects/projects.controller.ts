@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { AuthUser, CurrentUser } from '../common/decorators/current-user.decorator';
-import { ProjectDto, ReorderDto, TaskDto } from './projects.dto';
+import { ProjectDto, ReorderDto, TaskDto, WorkLogDto } from './projects.dto';
 
 @Controller()
 export class ProjectsController {
@@ -15,7 +15,11 @@ export class ProjectsController {
 
   @Get('projects/:id/tasks') tasks(@CurrentUser() u: AuthUser, @Param('id') id: string) { return this.svc.listTasks(u, id); }
   @Post('projects/:id/tasks') createTask(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: TaskDto) { return this.svc.createTask(u, id, d); }
-  @Get('tasks/my') my(@CurrentUser() u: AuthUser) { return this.svc.myTasks(u); }
+  @Get('tasks/my') my(@CurrentUser() u: AuthUser, @Query('scope') scope?: string, @Query('userId') userId?: string) { return this.svc.myTasks(u, { scope, userId }); }
+
+  // 일일 업무 일지 — 본인 작성, 대표는 전체 열람
+  @Get('worklogs') worklogs(@CurrentUser() u: AuthUser, @Query('date') date?: string, @Query('from') from?: string, @Query('to') to?: string, @Query('scope') scope?: string, @Query('userId') userId?: string) { return this.svc.workLogs(u, { date, from, to, scope, userId }); }
+  @Put('worklogs') setWorklog(@CurrentUser() u: AuthUser, @Body() d: WorkLogDto) { return this.svc.setWorkLog(u, d.date, d.content); }
   @Patch('tasks/:taskId') updateTask(@CurrentUser() u: AuthUser, @Param('taskId') id: string, @Body() d: Partial<TaskDto>) { return this.svc.updateTask(u, id, d); }
   @Delete('tasks/:taskId') removeTask(@CurrentUser() u: AuthUser, @Param('taskId') id: string) { return this.svc.removeTask(u, id); }
 }

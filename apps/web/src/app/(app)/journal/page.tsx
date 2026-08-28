@@ -74,7 +74,7 @@ export default function JournalPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">거래</h1>
+          <h1 className="page-title">거래</h1>
           <p className="mt-0.5 font-num text-xs text-ink-faint">
             {range.from} ~ {range.to}
             {listRes.data ? ` · ${listRes.data.total}건` : ''}

@@ -14,11 +14,23 @@ import { NoticeBanner } from '@/components/NoticeBanner';
 import { Spinner } from '@/components/ui';
 import type { CardExpenseList } from '@/lib/types';
 
-interface NavItem {
+interface NavShow {
+  (s: { isCeo: boolean; isAdmin: boolean }): boolean;
+}
+interface NavChild {
   href: string;
   label: string;
+  /** 모바일 가로 메뉴에서는 하위 구조 없이 풀네임으로 편다 */
+  mobileLabel: string;
+  show: NavShow;
+}
+interface NavItem {
+  href?: string;
+  label: string;
   /** 표시 조건 — 서버 권한과 별개인 '보여주기' 수준. 실제 차단은 API가 한다. */
-  show: (s: { isCeo: boolean; isAdmin: boolean }) => boolean;
+  show: NavShow;
+  /** 있으면 소갈래 그룹 — 클릭 시 하위 메뉴가 접히고 펼쳐진다 */
+  children?: NavChild[];
 }
 
 const NAV: NavItem[] = [
@@ -26,16 +38,26 @@ const NAV: NavItem[] = [
   { href: '/pnl', label: '손익', show: (s) => s.isAdmin },
   { href: '/journal', label: '거래', show: (s) => s.isAdmin },
   { href: '/treasury', label: '자금', show: (s) => s.isCeo },
-  { href: '/cards', label: '카드지출', show: () => true },
+  {
+    label: '지출',
+    show: () => true,
+    children: [
+      { href: '/expenses/account', label: '계좌', mobileLabel: '계좌지출', show: (s) => s.isCeo },
+      { href: '/cards', label: '카드', mobileLabel: '카드지출', show: () => true },
+    ],
+  },
   { href: '/my', label: '내 업무', show: () => true },
+  {
+    // 분석 뷰 — 같은 손익 데이터를 축(유형/부서/기간)별 카드로 본다. 기본은 접힘
+    label: '분석',
+    show: (s) => s.isAdmin,
+    children: [
+      { href: '/by-type', label: '유형별', mobileLabel: '유형별', show: (s) => s.isAdmin },
+      { href: '/by-department', label: '사업부서별', mobileLabel: '사업부서별', show: (s) => s.isAdmin },
+      { href: '/by-period', label: '기간별', mobileLabel: '기간별', show: (s) => s.isAdmin },
+    ],
+  },
   { href: '/settings', label: '설정', show: (s) => s.isCeo },
-];
-
-/** 분석 뷰 — 같은 손익 데이터를 축(유형/부서/기간)별 카드로 본다 */
-const ANALYSIS_NAV: NavItem[] = [
-  { href: '/by-type', label: '유형별', show: (s) => s.isAdmin },
-  { href: '/by-department', label: '사업부서별', show: (s) => s.isAdmin },
-  { href: '/by-period', label: '기간별', show: (s) => s.isAdmin },
 ];
 
 /** 팀 Slack 바로가기 — 주소는 NEXT_PUBLIC_SLACK_URL (기본값은 내 워크스페이스로 리다이렉트되는 app.slack.com) */
@@ -149,6 +171,8 @@ function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // 오늘의 공지를 확인하기 전에는 업무 화면을 흐리게 막는다
   const [noticeBlocked, setNoticeBlocked] = useState(false);
+  // 소갈래 그룹(지출 등) 접기/펼치기 — 명시 토글이 없으면 하위 경로 활성 시 자동으로 펼친다
+  const [openGroup, setOpenGroup] = useState<Record<string, boolean>>({});
 
   if (loading) {
     return (
@@ -172,8 +196,13 @@ function Shell({ children }: { children: React.ReactNode }) {
   }
 
   const scope = { isCeo, isAdmin };
-  const items = NAV.filter((n) => n.show(scope));
-  const analysisItems = ANALYSIS_NAV.filter((n) => n.show(scope));
+  const items = NAV.map((n) =>
+    n.children ? { ...n, children: n.children.filter((c) => c.show(scope)) } : n,
+  ).filter((n) => (n.children ? n.show(scope) && n.children.length > 0 : n.show(scope)));
+  /** 모바일 가로 메뉴용 — 그룹은 하위 항목 풀네임으로 편다 */
+  const flatItems = items.flatMap((n) =>
+    n.children ? n.children.map((c) => ({ href: c.href, label: c.mobileLabel })) : [{ href: n.href!, label: n.label }],
+  );
   const roleLabel = isCeo ? '대표' : isAdmin ? '관리자' : '직원';
   const initial = me.name.slice(0, 1);
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
@@ -181,33 +210,53 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       {/* ── 좌측 배너 (데스크톱) ── */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-44 flex-col bg-shell lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[184px] flex-col bg-shell lg:flex">
         <div className="px-5 pb-4 pt-5">
           <Link href="/" aria-label="모션브릿지 ERP 홈">
             <Logo height={24} />
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3">
+        <nav className="no-scrollbar flex-1 space-y-0.5 overflow-y-auto px-3">
           <NavLabel>메뉴</NavLabel>
-          {items.map((n) => (
-            <Link key={n.href} href={n.href} className={navClass(isActive(n.href), true)}>
-              {n.label}
-            </Link>
-          ))}
-
-          {analysisItems.length > 0 && (
-            <>
-              {/* 메뉴 ↔ 분석 구분선 */}
-              <div className="mx-3 my-3 border-t border-white/10" />
-              <NavLabel>분석</NavLabel>
-              {analysisItems.map((n) => (
-                <Link key={n.href} href={n.href} className={navClass(isActive(n.href), true)}>
+          {items.map((n) => {
+            if (!n.children)
+              return (
+                <Link key={n.href} href={n.href!} className={navClass(isActive(n.href!), true)}>
                   {n.label}
                 </Link>
-              ))}
-            </>
-          )}
+              );
+            const childActive = n.children.some((c) => isActive(c.href));
+            const opened = openGroup[n.label] ?? childActive;
+            return (
+              <div key={n.label}>
+                <button
+                  onClick={() => setOpenGroup((g) => ({ ...g, [n.label]: !opened }))}
+                  className={`${navClass(childActive, true)} w-full`}
+                  aria-expanded={opened}
+                >
+                  <span className="flex-1 text-left">{n.label}</span>
+                  <span className={`text-[11px] text-white/40 transition-transform ${opened ? 'rotate-180' : ''}`}>
+                    ▾
+                  </span>
+                </button>
+                {opened && (
+                  <div className="ml-3.5 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
+                    {n.children.map((c) => (
+                      <Link
+                        key={c.href}
+                        href={c.href}
+                        className={`${navClass(isActive(c.href), true)} !py-1.5 text-[13px]`}
+                      >
+                        {c.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
         </nav>
 
         {/* 팀 Slack 바로가기 — 프로필은 우측 상단으로 이동해 하단은 이것만 남긴다 */}
@@ -216,17 +265,17 @@ function Shell({ children }: { children: React.ReactNode }) {
             href={SLACK_URL}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2.5 rounded-lg border border-shell-line px-3 py-2 text-sm text-white/75 transition-colors hover:border-white/30 hover:bg-white/5 hover:text-white"
+            className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-shell-line px-2.5 py-2 text-xs text-white/75 transition-colors hover:border-white/30 hover:bg-white/5 hover:text-white"
           >
-            <SlackMark />
-            <span className="flex-1">팀 Slack 열기</span>
-            <span className="text-xs text-white/40">↗</span>
+            <SlackMark size={13} />
+            <span className="flex-1 truncate">팀 Slack 열기</span>
+            <span className="text-[11px] text-white/40">↗</span>
           </a>
         </div>
       </aside>
 
       {/* ── 본문 영역 ── */}
-      <div className="flex min-h-screen flex-col lg:pl-44">
+      <div className="flex min-h-screen flex-col lg:pl-[184px]">
         <header className="sticky top-0 z-30">
           {/* 모바일 전용 상단 바 — 좁은 화면에서는 사이드바 대신 가로 메뉴 */}
           <div className="bg-shell lg:hidden">
@@ -234,8 +283,8 @@ function Shell({ children }: { children: React.ReactNode }) {
               <Link href="/" className="shrink-0" aria-label="모션브릿지 ERP 홈">
                 <Logo height={22} />
               </Link>
-              <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-                {[...items, ...analysisItems].map((n) => (
+              <nav className="no-scrollbar flex flex-1 items-center gap-1 overflow-x-auto">
+                {flatItems.map((n) => (
                   <Link key={n.href} href={n.href} className={navClass(isActive(n.href), false)}>
                     {n.label}
                   </Link>
@@ -270,8 +319,9 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        {/* 오늘의 공지 — 헤더 바로 아래, 화면 가로 전체를 채우는 띠 */}
+        <NoticeBanner onBlockChange={setNoticeBlocked} />
         <main className="mx-auto w-full max-w-[1400px] animate-fade-up px-4 py-6 sm:px-6">
-          <NoticeBanner onBlockChange={setNoticeBlocked} />
           <div
             className={noticeBlocked ? 'pointer-events-none select-none opacity-60 blur-[3px]' : ''}
             aria-hidden={noticeBlocked || undefined}

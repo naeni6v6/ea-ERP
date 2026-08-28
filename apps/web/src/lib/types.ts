@@ -204,6 +204,8 @@ export interface Task {
   priority: string;
   status: string;
   isDone: boolean;
+  /** 완료 처리 시각 — 일별 완료 현황 차트용 */
+  doneAt: string | null;
   weight: number;
   sortOrder: number;
 }
@@ -350,6 +352,15 @@ export interface PlannedPayment {
   department?: { name: string } | null;
   project?: { name: string } | null;
   businessType?: { name: string } | null;
+}
+
+/** 일일 업무 일지 — 사람·날짜당 1건 */
+export interface WorkLog {
+  id: string;
+  logDate: string;
+  content: string;
+  updatedAt: string;
+  user?: { id: string; name: string };
 }
 
 /** 오늘의 공지 — 대시보드 상단 현수막 배너 */

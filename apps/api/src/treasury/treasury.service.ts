@@ -54,9 +54,9 @@ export class TreasuryService {
     await this.audit.log({ companyId: u.companyId, actorId: u.id, entity: 'BankImport', entityId: batchId, action: 'IMPORT', after: { bankAccountId: acc.id, inserted, skipped } });
     return { batchId, inserted, skipped };
   }
-  listTransactions(cid: string, q: { bankAccountId?: string; from?: string; to?: string; status?: string; take?: number }) {
+  listTransactions(cid: string, q: { bankAccountId?: string; from?: string; to?: string; status?: string; direction?: string; take?: number }) {
     return this.prisma.bankTransaction.findMany({
-      where: { bankAccount: { companyId: cid }, bankAccountId: q.bankAccountId, txnAt: { gte: q.from ? new Date(`${q.from}T00:00:00+09:00`) : undefined, lt: q.to ? new Date(new Date(`${q.to}T00:00:00+09:00`).getTime() + 86400000) : undefined }, ...(q.status ? { classification: { status: q.status as any } } : {}) },
+      where: { bankAccount: { companyId: cid }, bankAccountId: q.bankAccountId, direction: q.direction === 'IN' || q.direction === 'OUT' ? q.direction : undefined, txnAt: { gte: q.from ? new Date(`${q.from}T00:00:00+09:00`) : undefined, lt: q.to ? new Date(new Date(`${q.to}T00:00:00+09:00`).getTime() + 86400000) : undefined }, ...(q.status ? { classification: { status: q.status as any } } : {}) },
       include: { bankAccount: { select: { alias: true, bankName: true } }, classification: { include: { journalEntry: { select: { id: true, entryNo: true, type: true, memo: true } } } } },
       orderBy: { txnAt: 'desc' }, take: q.take ?? 100,
     });

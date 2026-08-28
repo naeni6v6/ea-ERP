@@ -141,6 +141,42 @@ function PickerMenu({
   );
 }
 
+/**
+ * 지출 용도 고정 목록 — 수기 입력 대신 체크(선택). 설정의 코드값(CARD_PURPOSE)으로 관리하고,
+ * 코드값이 아직 없으면 아래 기본 목록을 쓴다.
+ */
+const DEFAULT_PURPOSES = [
+  '식비', '회식비', '업무교통비', '야근교통비', '국내출장비', '국외출장비', '접대비',
+  '유류비', '교육훈련비', '도서구입비', '정기구독료', '회의비', '사무용품비', '소모품비',
+  'IT솔루션', '서류발급비', '온라인 마케팅', '광고비', '판촉물제작비', '기타비용', '오사용',
+];
+
+function PurposeSelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  const { codesOf } = useSession();
+  const fromCodes = codesOf('CARD_PURPOSE').map((c) => c.label);
+  const options = fromCodes.length ? fromCodes : DEFAULT_PURPOSES;
+  return (
+    <select className={className ?? 'input'} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">용도 선택</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+      {/* 목록 도입 전에 직접 입력했던 값은 그대로 보이게 유지 */}
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+    </select>
+  );
+}
+
 const SOURCE_LABEL: Record<CorporateCard['source'], string> = {
   GOWID: '고위드 자동',
   BANK: '계좌 파생',
@@ -198,7 +234,7 @@ export default function CardsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-bold tracking-tight">카드지출</h1>
+        <h1 className="page-title">카드지출</h1>
         {s && (
           <div className="text-[17px] text-ink-mute">
             총 이용 금액 <span className="font-num text-base font-bold text-ink">{num(s.all.amount)}원</span>
@@ -553,11 +589,10 @@ function ExpenseList({
                         <td className="td min-w-[200px]">
                           {canEdit ? (
                             <>
-                              <input
+                              <PurposeSelect
                                 className="input w-full !py-1.5 text-sm"
-                                placeholder="용도 입력"
                                 value={d.purpose}
-                                onChange={(ev) => setDrafts((prev) => ({ ...prev, [e.id]: { ...d, purpose: ev.target.value } }))}
+                                onChange={(v) => setDrafts((prev) => ({ ...prev, [e.id]: { ...d, purpose: v } }))}
                               />
                               {e.status === 'REJECTED' && e.rejectReason && (
                                 <div className="mt-0.5 text-xs text-neg">반려: {e.rejectReason}</div>
@@ -615,7 +650,7 @@ function ExpenseList({
                                 className="btn-primary !bg-brand-dark !py-1 px-3.5 text-sm font-bold hover:!bg-brand-deep disabled:!bg-line disabled:text-ink-faint"
                                 disabled={busyId === e.id || !d.purpose.trim()}
                                 onClick={() => approveDirect(e)}
-                                title={d.purpose.trim() ? '용도 저장과 함께 승인합니다' : '용도를 입력하면 승인할 수 있습니다'}
+                                title={d.purpose.trim() ? '용도 저장과 함께 승인합니다' : '용도를 선택하면 승인할 수 있습니다'}
                               >
                                 승인
                               </button>
@@ -848,7 +883,7 @@ function AddExpenseModal({
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="용도">
-            <input className="input" value={purposeText} onChange={(e) => setPurposeText(e.target.value)} placeholder="무슨 명목인가요?" />
+            <PurposeSelect value={purposeText} onChange={setPurposeText} />
           </Field>
           <Field label="메모">
             <input className="input" value={memo} onChange={(e) => setMemo(e.target.value)} />
