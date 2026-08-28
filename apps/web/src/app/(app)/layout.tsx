@@ -1,12 +1,18 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
+import { num } from '@/lib/format';
 import { FilterProvider } from '@/lib/filters';
 import { SessionProvider, useSession } from '@/lib/session';
 import { FilterBar } from '@/components/FilterBar';
 import { Logo } from '@/components/Logo';
+import { NoticeBanner } from '@/components/NoticeBanner';
 import { Spinner } from '@/components/ui';
+import type { CardExpenseList } from '@/lib/types';
 
 interface NavItem {
   href: string;
@@ -21,7 +27,6 @@ const NAV: NavItem[] = [
   { href: '/journal', label: '거래', show: (s) => s.isAdmin },
   { href: '/treasury', label: '자금', show: (s) => s.isCeo },
   { href: '/cards', label: '카드지출', show: () => true },
-  { href: '/projects', label: '프로젝트', show: () => true },
   { href: '/my', label: '내 업무', show: () => true },
   { href: '/settings', label: '설정', show: (s) => s.isCeo },
 ];
@@ -47,6 +52,80 @@ function SlackMark({ size = 16 }: { size?: number }) {
   );
 }
 
+/**
+ * 결제 승인 알림 벨 — 대표 프로필 왼쪽. 승인 대기(SUBMITTED) 카드지출 건수를 빨간 배지로 띄우고
+ * 클릭하면 최근 요청 목록이 펼쳐진다. 1분마다 자동 갱신.
+ */
+function ApprovalBell() {
+  const [open, setOpen] = useState(false);
+  const res = useAsync(() => api.get<CardExpenseList>('/cards/expenses', { status: 'SUBMITTED', take: 8 }), []);
+  const { reload } = res;
+  useEffect(() => {
+    const t = setInterval(reload, 60_000);
+    return () => clearInterval(t);
+  }, [reload]);
+
+  const count = res.data?.summary.submitted.count ?? 0;
+  const rows = res.data?.rows ?? [];
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="relative rounded-full p-2 text-ink-mute transition-colors hover:bg-line-soft hover:text-ink"
+        title="결제 승인 알림"
+        aria-label={`결제 승인 대기 ${count}건`}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        </svg>
+        {count > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 font-num text-[11px] font-bold leading-none text-white shadow-sm">
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="card absolute right-0 top-full z-50 mt-1.5 w-80 overflow-hidden shadow-xl">
+            <div className="border-b border-line px-4 py-2.5 text-sm font-semibold">
+              결제 승인 대기 <span className="font-num text-red-600">{count}</span>건
+            </div>
+            {rows.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-ink-faint">대기 중인 승인 요청이 없습니다.</p>
+            ) : (
+              <ul className="max-h-72 divide-y divide-line-soft overflow-y-auto">
+                {rows.map((e) => (
+                  <li key={e.id} className="px-4 py-2.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-sm font-medium">{e.storeName || '가맹점 미상'}</span>
+                      <span className="shrink-0 font-num text-sm font-semibold text-red-600">{num(e.amount)}원</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-ink-mute">
+                      {e.card?.holder?.name ?? e.card?.name ?? '—'} · {e.usedAt?.slice(0, 10).replace(/-/g, '.')}
+                      {e.purposeText ? ` · ${e.purposeText}` : ''}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href="/cards"
+              onClick={() => setOpen(false)}
+              className="block border-t border-line bg-line-soft/40 px-4 py-2.5 text-center text-xs font-semibold text-brand-deep hover:bg-line-soft"
+            >
+              카드지출에서 승인하기 →
+            </Link>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function navClass(active: boolean, vertical: boolean) {
   const base = vertical
     ? 'flex items-center rounded-lg px-3 py-2 text-sm transition-colors'
@@ -68,6 +147,8 @@ function NavLabel({ children }: { children: React.ReactNode }) {
 function Shell({ children }: { children: React.ReactNode }) {
   const { me, loading, isCeo, isAdmin, logout } = useSession();
   const pathname = usePathname();
+  // 오늘의 공지를 확인하기 전에는 업무 화면을 흐리게 막는다
+  const [noticeBlocked, setNoticeBlocked] = useState(false);
 
   if (loading) {
     return (
@@ -100,7 +181,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       {/* ── 좌측 배너 (데스크톱) ── */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col bg-shell lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-44 flex-col bg-shell lg:flex">
         <div className="px-5 pb-4 pt-5">
           <Link href="/" aria-label="모션브릿지 ERP 홈">
             <Logo height={24} />
@@ -145,7 +226,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── 본문 영역 ── */}
-      <div className="flex min-h-screen flex-col lg:pl-56">
+      <div className="flex min-h-screen flex-col lg:pl-44">
         <header className="sticky top-0 z-30">
           {/* 모바일 전용 상단 바 — 좁은 화면에서는 사이드바 대신 가로 메뉴 */}
           <div className="bg-shell lg:hidden">
@@ -174,6 +255,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             </div>
             {/* 대표 프로필 — 우측 상단 (데스크톱), 눈에 띄게 */}
             <div className="hidden shrink-0 items-center gap-3 border-b border-line bg-white/85 pl-4 pr-5 backdrop-blur lg:flex">
+              {isCeo && <ApprovalBell />}
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-brand-dark text-lg font-bold text-white shadow-glow">
                 {initial}
               </span>
@@ -189,7 +271,13 @@ function Shell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="mx-auto w-full max-w-[1400px] animate-fade-up px-4 py-6 sm:px-6">
-          {children}
+          <NoticeBanner onBlockChange={setNoticeBlocked} />
+          <div
+            className={noticeBlocked ? 'pointer-events-none select-none opacity-60 blur-[3px]' : ''}
+            aria-hidden={noticeBlocked || undefined}
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

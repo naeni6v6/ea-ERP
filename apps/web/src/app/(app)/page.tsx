@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useFilters } from '@/lib/filters';
@@ -9,7 +10,8 @@ import { compact, num, pct, signClass } from '@/lib/format';
 import { fetchMonthlyPnl } from '@/lib/monthly';
 import { BreakdownTable } from '@/components/BreakdownTable';
 import { CompareBars, TrendChart } from '@/components/charts';
-import { ProjectBoard } from '@/components/ProjectBoard';
+import { ProjectBoard, type ProjectBoardHandle } from '@/components/ProjectBoard';
+import { ProjectCreateModal, ProjectUploadModal } from '@/components/ProjectModals';
 import { ErrorBox, Kpi, Progress, Section, Spinner } from '@/components/ui';
 import type { Dashboard, Project, ProjectFinance } from '@/lib/types';
 
@@ -17,8 +19,14 @@ const ZERO_FIN: ProjectFinance = { received: '0', receivable: '0', paid: '0', pa
 
 export default function DashboardPage() {
   const f = useFilters();
-  const { me, isCeo, isAdmin, labelOf } = useSession();
+  const { me, isCeo, isAdmin, labelOf, codesOf } = useSession();
   const q = f.query;
+  const [projStatus, setProjStatus] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const boardRef = useRef<ProjectBoardHandle>(null);
+  const [boardDirty, setBoardDirty] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
 
   const { data, error, loading, reload } = useAsync(
     () => api.get<Dashboard>('/metrics/dashboard', q),
@@ -32,14 +40,15 @@ export default function DashboardPage() {
     [canPnl, q.businessTypeId, q.departmentId, q.projectId],
   );
 
-  // 프로젝트 보드 — 부서·담당·목표까지 포함한 전체 목록 (scope 적용)
+  // 프로젝트 보드 — 부서·담당·목표까지 포함한 전체 목록 (scope 적용, 상태 필터는 보드 전용)
   const projList = useAsync(
     () =>
       api.get<Project[]>('/projects', {
         businessTypeId: q.businessTypeId,
         departmentId: q.departmentId,
+        status: projStatus || undefined,
       }),
-    [q.businessTypeId, q.departmentId],
+    [q.businessTypeId, q.departmentId, projStatus],
   );
 
   // 프로젝트별 자금 요약(받을돈·받은돈·나간돈·나갈돈) — 손익 권한자만
@@ -58,6 +67,20 @@ export default function DashboardPage() {
 
   const { pnl, treasury, projects } = data;
 
+  // 보드의 목표 초안·드래그 순서를 한 번에 저장
+  const saveBoard = async () => {
+    if (!boardRef.current) return;
+    setSaveState('saving');
+    try {
+      await boardRef.current.save();
+      setSaveState('idle');
+      projList.reload();
+      reload();
+    } catch {
+      setSaveState('error');
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between gap-3">
@@ -74,18 +97,55 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── 핵심 프로젝트 관리 (모든 Role, 노션 스타일 보드) ── */}
+      {/* ── 프로젝트 관리 (대시보드·프로젝트 통합 화면, 모든 Role) ── */}
       <Section
-        title="핵심 프로젝트 관리"
+        title="프로젝트 관리"
         desc={`전체 ${projects.total} · 진행 ${projects.active} · 지연 ${projects.delayed} · 위험 ${projects.atRisk}`}
         right={
           <span className="flex items-center gap-2">
-            <Link href="/projects" className="text-xs text-brand-deep hover:underline">
-              전체 보기 →
-            </Link>
-            <Link href="/projects" className="btn-primary !px-3 !py-1.5 text-xs">
-              + 새로 만들기
-            </Link>
+            <select
+              className="input w-28 !py-1.5 text-xs"
+              value={projStatus}
+              onChange={(e) => setProjStatus(e.target.value)}
+            >
+              <option value="">모든 상태</option>
+              {codesOf('PROJECT_STATUS').map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            {isAdmin && (
+              <>
+                <button
+                  className="btn-ghost border border-line !px-3 !py-1.5 text-xs"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  + 프로젝트 생성
+                </button>
+                <button
+                  className="btn-primary !px-3.5 !py-1.5 text-xs font-semibold shadow-glow"
+                  onClick={() => setUploadOpen(true)}
+                  title="CSV·TSV·JSON 파일로 여러 프로젝트를 한 번에 등록"
+                >
+                  ⬆ 프로젝트 업로드
+                </button>
+                <button
+                  className={`!px-3 !py-1.5 text-xs ${
+                    saveState === 'error'
+                      ? 'btn-primary !bg-red-600'
+                      : boardDirty
+                        ? 'btn-primary'
+                        : 'btn-ghost border border-line'
+                  }`}
+                  onClick={saveBoard}
+                  disabled={!boardDirty || saveState === 'saving'}
+                  title="목표 입력·드래그로 바꾼 행 순서를 저장합니다"
+                >
+                  {saveState === 'saving' ? '저장 중…' : saveState === 'error' ? '실패 — 재시도' : '저장'}
+                </button>
+              </>
+            )}
           </span>
         }
       >
@@ -95,16 +155,19 @@ export default function DashboardPage() {
           <ErrorBox message={projList.error} onRetry={projList.reload} />
         ) : (
           <ProjectBoard
+            ref={boardRef}
             projects={projList.data ?? []}
             labelOf={labelOf}
             finance={financeMap}
+            editable={isAdmin}
+            onDirtyChange={setBoardDirty}
             onTasksChanged={() => {
               projList.reload();
               reload();
             }}
             emptyHint={
-              f.businessTypeId || f.departmentId
-                ? '상단 필터(사업유형/부서)에 해당하는 프로젝트가 없습니다. 필터를 초기화해보세요.'
+              f.businessTypeId || f.departmentId || projStatus
+                ? '필터(사업유형/부서/상태)에 해당하는 프로젝트가 없습니다. 필터를 초기화해보세요.'
                 : undefined
             }
           />
@@ -289,6 +352,24 @@ export default function DashboardPage() {
           있습니다.
         </p>
       )}
+
+      <ProjectCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSaved={() => {
+          projList.reload();
+          reload();
+        }}
+      />
+      <ProjectUploadModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onSaved={() => {
+          projList.reload();
+          reload();
+        }}
+        existingCodes={(projList.data ?? []).map((p) => p.code)}
+      />
     </div>
   );
 }

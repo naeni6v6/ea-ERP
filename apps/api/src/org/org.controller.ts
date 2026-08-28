@@ -22,6 +22,10 @@ export class OrgController {
   @Patch('users/:id') @Roles(Role.CEO) updateUser(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: UpdateUserDto) { return this.org.updateUser(u, id, d); }
   @Put('users/:id/role-scopes') @Roles(Role.CEO) setScopes(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() scopes: RoleScopeDto[]) { return this.org.setRoleScopes(u, id, scopes); }
 
+  /** 오늘의 공지 — 조회는 전 직원, 등록·수정·삭제(빈 내용)는 CEO/ADMIN */
+  @Get('notices/today') todayNotice(@CurrentUser() u: AuthUser) { return this.org.todayNotice(u.companyId); }
+  @Put('notices/today') @Roles(Role.CEO, Role.ADMIN) setTodayNotice(@CurrentUser() u: AuthUser, @Body('content') content: string) { return this.org.setTodayNotice(u, content ?? ''); }
+
   @Get('code-values') listCodes(@CurrentUser() u: AuthUser, @Query('kind') kind?: string) { return this.org.listCodes(u.companyId, kind); }
   @Put('code-values') @Roles(Role.CEO) upsertCode(@CurrentUser() u: AuthUser, @Body() d: CodeValueDto) { return this.org.upsertCode(u.companyId, d); }
 }

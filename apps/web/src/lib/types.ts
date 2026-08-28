@@ -177,6 +177,7 @@ export interface Project {
   targetCost: string;
   targetProfit: string;
   financeVisibleToMembers: boolean;
+  sortOrder: number;
   businessTypeId: string;
   leadDepartmentId: string;
   ownerUserId: string | null;
@@ -349,6 +350,15 @@ export interface PlannedPayment {
   department?: { name: string } | null;
   project?: { name: string } | null;
   businessType?: { name: string } | null;
+}
+
+/** 오늘의 공지 — 대시보드 상단 현수막 배너 */
+export interface Notice {
+  id: string;
+  noticeDate: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuditLog {

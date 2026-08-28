@@ -3,11 +3,34 @@ import bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { toDateOnly, todaySeoul } from '../common/dates';
 import { BusinessTypeDto, CodeValueDto, CreateUserDto, DepartmentDto, RoleScopeDto, UpdateUserDto } from './org.dto';
 
 @Injectable()
 export class OrgService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
+
+  // 오늘의 공지 — 날짜당 1건. content 비우면 삭제
+  todayNotice(cid: string) {
+    return this.prisma.notice.findUnique({ where: { companyId_noticeDate: { companyId: cid, noticeDate: toDateOnly(todaySeoul()) } } });
+  }
+  async setTodayNotice(actor: AuthUser, content: string) {
+    const noticeDate = toDateOnly(todaySeoul());
+    const key = { companyId_noticeDate: { companyId: actor.companyId, noticeDate } };
+    const v = content.trim();
+    if (!v) {
+      await this.prisma.notice.deleteMany({ where: { companyId: actor.companyId, noticeDate } });
+      await this.audit.log({ companyId: actor.companyId, actorId: actor.id, entity: 'Notice', entityId: todaySeoul(), action: 'DELETE' });
+      return null;
+    }
+    const n = await this.prisma.notice.upsert({
+      where: key,
+      create: { companyId: actor.companyId, noticeDate, content: v },
+      update: { content: v },
+    });
+    await this.audit.log({ companyId: actor.companyId, actorId: actor.id, entity: 'Notice', entityId: n.id, action: 'UPSERT', after: { content: v } });
+    return n;
+  }
 
   // 사업유형
   listBusinessTypes(cid: string) { return this.prisma.businessType.findMany({ where: { companyId: cid }, orderBy: { sortOrder: 'asc' } }); }

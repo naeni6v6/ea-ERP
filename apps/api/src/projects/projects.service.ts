@@ -40,8 +40,21 @@ export class ProjectsService {
       businessTypeId: q.businessTypeId, status: q.status,
       ...(q.departmentId ? { departments: { some: { departmentId: q.departmentId } } } : {}),
     };
-    const rows = await this.prisma.project.findMany({ where, include: this.include, orderBy: [{ status: 'asc' }, { planEndDate: 'asc' }] });
+    const rows = await this.prisma.project.findMany({ where, include: this.include, orderBy: [{ sortOrder: 'asc' }, { status: 'asc' }, { planEndDate: 'asc' }] });
     return rows.map((p) => this.decorate(p));
+  }
+
+  /** 보드 드래그 정렬 저장 — ids 배열 순서대로 sortOrder 부여 (isAdmin) */
+  async reorder(user: AuthUser, ids: string[]) {
+    const s = await this.scope.resolve(user);
+    if (!s.isAdmin) throw new ForbiddenException('프로젝트 정렬 변경 권한이 없습니다');
+    const mine = await this.prisma.project.findMany({ where: { companyId: user.companyId, id: { in: ids }, deletedAt: null }, select: { id: true } });
+    const allowed = new Set(mine.map((p) => p.id));
+    await this.prisma.$transaction(
+      ids.filter((id) => allowed.has(id)).map((id, i) => this.prisma.project.update({ where: { id }, data: { sortOrder: i } })),
+    );
+    await this.audit.log({ companyId: user.companyId, actorId: user.id, entity: 'Project', entityId: 'board', action: 'REORDER', after: { ids } });
+    return { ok: true };
   }
 
   async get(user: AuthUser, id: string) {

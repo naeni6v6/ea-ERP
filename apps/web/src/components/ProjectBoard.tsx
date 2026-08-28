@@ -1,17 +1,19 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { forwardRef, Fragment, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
-import { compact, num, signClass } from '@/lib/format';
+import { num, signClass } from '@/lib/format';
 import { Empty, Progress, Spinner } from '@/components/ui';
 import type { Project, ProjectFinance, Task } from '@/lib/types';
 
 /**
- * 노션 스타일 프로젝트 보드 — 상태 필 · 태그(부서·담당자) · 진행률 · 기간 · 목표 · 할 일 · 예상손익.
+ * 노션 스타일 프로젝트 보드 — 진행률(상태 점 포함) · 태그(부서·담당자) · 계약금액 · 기간 · 목표 · 할 일.
  * 태그 색은 이름 해시로 고정되므로 같은 부서·사람은 어디서나 같은 색으로 보인다.
- * 예상손익 칩을 클릭하면 해당 행 아래로 받을돈·받은돈·나간돈·나갈돈 상세가 펼쳐진다.
+ * 계약금액을 클릭하면 해당 행 아래로 계약금액·예산·미수금·수금·지출·미지급·예상손익 상세가 펼쳐진다.
+ * 지연 프로젝트가 항상 위로 오고, 관리자는 ⠿ 핸들 드래그로 순서를 바꾸고 목표를 그 자리에서 입력한 뒤
+ * 상단 [저장] 버튼으로 한 번에 저장한다(save()는 ref로 노출).
  */
 
 /** 노션 태그 팔레트 — 밝은 카드 위에서 잘 읽히는 연한 배경 + 진한 글자 */
@@ -46,29 +48,19 @@ function Tag({ name }: { name: string }) {
   );
 }
 
-/** 상태 필 — 노션처럼 점 + 라벨. 색은 상태 의미로 고정 */
-const STATUS_PILL: Record<string, { bg: string; fg: string; dot: string }> = {
-  PLANNED: { bg: '#f1f0ee', fg: '#57514b', dot: '#a9a099' },
-  ACTIVE: { bg: '#e7f0fa', fg: '#1c5cab', dot: '#2a78d6' },
-  ON_HOLD: { bg: '#fbf3d8', fg: '#8f6c00', dot: '#c9820f' },
-  DONE: { bg: '#e7f3ea', fg: '#1f7a3f', dot: '#2f8f5b' },
-  CANCELLED: { bg: '#f1f0ee', fg: '#a9a099', dot: '#c8c2bb' },
+/** 상태 색 — 진행률 옆 작은 점으로만 표시한다 (라벨은 툴팁) */
+const STATUS_DOT: Record<string, string> = {
+  PLANNED: '#a9a099',
+  ACTIVE: '#2a78d6',
+  ON_HOLD: '#c9820f',
+  DONE: '#2f8f5b',
+  CANCELLED: '#c8c2bb',
 };
 
-function StatusPill({ status, label }: { status: string; label: string }) {
-  const c = STATUS_PILL[status] ?? STATUS_PILL.PLANNED;
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium"
-      style={{ background: c.bg, color: c.fg }}
-    >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
-      {label}
-    </span>
-  );
-}
-
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** "2026-08-28" → "2026.08.28" — 기간 칸 최소 표기 */
+const sdate = (d: string | null | undefined): string => (d ? d.slice(0, 10).replace(/-/g, '.') : '');
 
 /** "2026-08-26" → "26.08.26 (수)" */
 const kdate = (d: string | null | undefined): string => {
@@ -82,10 +74,10 @@ const kdate = (d: string | null | undefined): string => {
 
 /** 펼침 행의 자금 상세 항목 — 회계 용어 기준 */
 const FIN_ITEMS: { key: keyof ProjectFinance; label: string; hint: string; tone: 'in' | 'out' | 'net' }[] = [
-  { key: 'receivable', label: '매출채권', hint: '회수 예정 채권 잔액', tone: 'in' },
-  { key: 'received', label: '현금유입', hint: '프로젝트 귀속 입금 합계', tone: 'in' },
-  { key: 'paid', label: '현금유출', hint: '프로젝트 귀속 출금 합계', tone: 'out' },
-  { key: 'payable', label: '미지급채무', hint: '미지급금 + 지급예정액', tone: 'out' },
+  { key: 'receivable', label: '미수금 (받을 돈)', hint: '회수 예정 매출채권 잔액', tone: 'in' },
+  { key: 'received', label: '수금액 (받은 돈)', hint: '프로젝트 귀속 입금 합계', tone: 'in' },
+  { key: 'paid', label: '지출액 (나간 돈)', hint: '프로젝트 귀속 출금 합계', tone: 'out' },
+  { key: 'payable', label: '미지급금 (낼 돈)', hint: '미지급금 + 지급예정액', tone: 'out' },
   { key: 'expectedProfit', label: '예상손익', hint: '유입+채권 − 유출·채무', tone: 'net' },
 ];
 
@@ -183,80 +175,272 @@ function TaskPanel({
   );
 }
 
-function FinanceRow({ fin, colSpan }: { fin: ProjectFinance; colSpan: number }) {
+/**
+ * 프로젝트 목표 — 클릭해서 그 자리에서 입력(Enter/포커스아웃으로 반영, Esc 취소).
+ * 바로 서버에 쓰지 않고 초안(draft)으로 들고 있다가 상단 [저장] 버튼으로 확정한다.
+ */
+function GoalCell({
+  p,
+  draft,
+  editable,
+  onDraft,
+}: {
+  p: Project;
+  /** 저장 전 초안 — undefined면 초안 없음(원본 표시) */
+  draft?: string;
+  editable?: boolean;
+  onDraft: (v: string) => void;
+}) {
+  const value = draft ?? p.goal ?? '';
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+  const cancelRef = useRef(false);
+
+  if (!editable)
+    return (
+      <span className="block max-w-[220px] truncate text-sm text-ink-soft" title={value || undefined}>
+        {value || '—'}
+      </span>
+    );
+
+  const commit = () => {
+    onDraft(text.trim());
+    setEditing(false);
+  };
+
+  if (editing)
+    return (
+      <input
+        autoFocus
+        className="input min-w-[170px] !py-1 text-sm"
+        value={text}
+        placeholder="목표 입력 후 Enter"
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') {
+            cancelRef.current = true;
+            setEditing(false);
+          }
+        }}
+        onBlur={() => {
+          if (cancelRef.current) {
+            cancelRef.current = false;
+            return;
+          }
+          commit();
+        }}
+      />
+    );
+
+  return (
+    <button
+      onClick={() => {
+        setText(value);
+        setEditing(true);
+      }}
+      className="group flex max-w-[240px] items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm text-ink-soft transition-colors hover:bg-line-soft"
+      title="클릭해서 목표 입력·수정 — [저장]을 눌러야 확정됩니다"
+    >
+      <span className="truncate">{value || <span className="text-ink-faint">+ 목표 입력</span>}</span>
+      {draft !== undefined && (
+        <span className="shrink-0 rounded bg-amber-50 px-1 text-[11px] font-medium text-warn">저장 전</span>
+      )}
+      <span className="invisible shrink-0 text-[12px] text-ink-faint group-hover:visible">✎</span>
+    </button>
+  );
+}
+
+/** 금액 상세 펼침 행 — 계약금액·예산 + (권한 시) 미수금·수금·지출·미지급·예상손익 */
+function MoneyRow({ p, fin, colSpan }: { p: Project; fin?: ProjectFinance; colSpan: number }) {
+  const base: { label: string; v: string; hint: string; cls: string }[] = [
+    { label: '계약금액', v: p.contractAmount, hint: '계약 총액', cls: 'font-semibold text-ink' },
+    { label: '예산', v: p.budgetAmount, hint: '집행 가능 예산', cls: 'text-ink' },
+  ];
   return (
     <tr className="bg-line-soft/50">
       <td colSpan={colSpan} className="px-4 py-3">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {FIN_ITEMS.map((it) => {
-            const v = fin[it.key];
-            const cls =
-              it.tone === 'net' ? `font-semibold ${signClass(v)}` : it.tone === 'in' ? 'text-pos' : 'text-neg';
-            return (
-              <div key={it.key} className="rounded-lg border border-line bg-white px-3 py-2" title={it.hint}>
-                <div className="text-[13px] text-ink-mute">{it.label}</div>
-                <div className={`mt-0.5 font-num text-sm ${cls}`}>{num(v)}원</div>
-                <div className="text-[12px] text-ink-faint">{it.hint}</div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          {base.map((it) => (
+            <div key={it.label} className="rounded-lg border border-line bg-white px-3 py-2" title={it.hint}>
+              <div className="text-[13px] text-ink-mute">{it.label}</div>
+              <div className={`mt-0.5 font-num text-sm ${it.cls}`}>{num(it.v)}원</div>
+              <div className="text-[12px] text-ink-faint">{it.hint}</div>
+            </div>
+          ))}
+          {fin ? (
+            FIN_ITEMS.map((it) => {
+              const v = fin[it.key];
+              const cls =
+                it.tone === 'net' ? `font-semibold ${signClass(v)}` : it.tone === 'in' ? 'text-pos' : 'text-neg';
+              return (
+                <div key={it.key} className="rounded-lg border border-line bg-white px-3 py-2" title={it.hint}>
+                  <div className="text-[13px] text-ink-mute">{it.label}</div>
+                  <div className={`mt-0.5 font-num text-sm ${cls}`}>{num(v)}원</div>
+                  <div className="text-[12px] text-ink-faint">{it.hint}</div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-2 flex items-center rounded-lg border border-dashed border-line px-3 py-2 text-xs text-ink-faint sm:col-span-2 lg:col-span-5">
+              미수금·수금·지출 등 입출금 상세는 손익 열람 권한(대표·관리자)에서 표시됩니다.
+            </div>
+          )}
         </div>
       </td>
     </tr>
   );
 }
 
-export function ProjectBoard({
-  projects,
-  labelOf,
-  finance,
-  emptyHint,
-  onTasksChanged,
-}: {
-  projects: Project[];
-  labelOf: (kind: string, code: string) => string;
-  /** projectId → 자금 요약. 없으면(권한 없음/로딩) 예상손익 칸은 —로 표시 */
-  finance?: Record<string, ProjectFinance>;
-  emptyHint?: string;
-  /** 할 일 체크/추가 시 진행률·완수율 갱신용 */
-  onTasksChanged?: () => void;
-}) {
+export interface ProjectBoardHandle {
+  /** 목표 초안 PATCH + 순서 변경 저장 — 상단 [저장] 버튼이 호출 */
+  save: () => Promise<void>;
+}
+
+export const ProjectBoard = forwardRef<
+  ProjectBoardHandle,
+  {
+    projects: Project[];
+    labelOf: (kind: string, code: string) => string;
+    /** projectId → 자금 요약. 없으면(권한 없음/로딩) 금액 펼침에 입출금 상세가 빠진다 */
+    finance?: Record<string, ProjectFinance>;
+    emptyHint?: string;
+    /** 할 일 체크/추가 시 진행률·완수율 갱신용 */
+    onTasksChanged?: () => void;
+    /** 목표 인라인 편집 + 드래그 정렬 허용 (관리자) */
+    editable?: boolean;
+    /** 저장할 변경(목표 초안·순서)이 생기거나 사라질 때 알림 — [저장] 버튼 활성화용 */
+    onDirtyChange?: (dirty: boolean) => void;
+  }
+>(function ProjectBoard({ projects, labelOf, finance, emptyHint, onTasksChanged, editable, onDirtyChange }, ref) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [taskOpenId, setTaskOpenId] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+  // 지연 프로젝트가 항상 위로 — 그 안에서는 서버 저장 순서(sortOrder) 유지
+  const initialIds = useMemo(
+    () => [...projects].sort((a, b) => Number(b.isDelayed) - Number(a.isDelayed)).map((p) => p.id),
+    [projects],
+  );
+  const initialKey = initialIds.join('|');
+  const [ids, setIds] = useState<string[]>(initialIds);
+
+  // 목록이 새로 로드되면(필터 변경·생성·업로드·저장 후) 로컬 순서·초안을 리셋
+  useEffect(() => {
+    setIds(initialIds);
+    setDrafts({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialKey]);
+
+  const orderDirty = ids.join('|') !== initialKey;
+  const dirty = orderDirty || Object.keys(drafts).length > 0;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      async save() {
+        for (const [id, goal] of Object.entries(drafts)) await api.patch(`/projects/${id}`, { goal });
+        if (orderDirty) await api.post('/projects/reorder', { ids });
+      },
+    }),
+    [drafts, orderDirty, ids],
+  );
+
+  const setGoalDraft = (p: Project, v: string) =>
+    setDrafts((d) => {
+      if (v === (p.goal ?? '').trim()) {
+        const { [p.id]: _omit, ...rest } = d;
+        return rest;
+      }
+      return { ...d, [p.id]: v };
+    });
+
+  const moveTo = (src: string, dst: string) =>
+    setIds((cur) => {
+      const from = cur.indexOf(src);
+      const to = cur.indexOf(dst);
+      if (from < 0 || to < 0 || from === to) return cur;
+      const next = [...cur];
+      next.splice(from, 1);
+      next.splice(to, 0, src);
+      return next;
+    });
 
   if (!projects.length) return <Empty>{emptyHint ?? '접근 가능한 프로젝트가 없습니다.'}</Empty>;
 
-  const COLS = 10;
+  const COLS = 8;
+  const rows = ids.map((id) => byId.get(id)).filter((p): p is Project => !!p);
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead className="border-b border-line-soft">
           <tr>
-            <th className="th">진행현황</th>
-            <th className="th">프로젝트 명칭</th>
             <th className="th">진행률</th>
+            <th className="th">프로젝트 명칭</th>
             <th className="th">담당부서</th>
             <th className="th">담당자</th>
-            <th className="th">시작 날짜</th>
-            <th className="th">마감 날짜</th>
+            <th className="th">계약금액</th>
+            <th className="th">기간</th>
             <th className="th">프로젝트 목표</th>
             <th className="th">할 일</th>
-            <th className="th text-right">예상손익</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line-soft">
-          {projects.map((p) => {
+          {rows.map((p) => {
             const fin = finance?.[p.id];
             const open = openId === p.id;
             const taskOpen = taskOpenId === p.id;
+            const start = sdate(p.startDate);
+            const end = sdate(p.planEndDate);
             return (
               <Fragment key={p.id}>
-                <tr className="hover:bg-line-soft/60">
-                  <td className="td">
-                    <StatusPill status={p.status} label={labelOf('PROJECT_STATUS', p.status)} />
+                <tr
+                  className={`hover:bg-line-soft/60 ${dragId === p.id ? 'opacity-40' : ''}`}
+                  onDragOver={
+                    editable
+                      ? (e) => {
+                          e.preventDefault();
+                          if (dragId && dragId !== p.id) moveTo(dragId, p.id);
+                        }
+                      : undefined
+                  }
+                  onDrop={editable ? (e) => e.preventDefault() : undefined}
+                >
+                  <td className="td w-[150px]">
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      {editable && (
+                        <span
+                          draggable
+                          onDragStart={(e) => {
+                            setDragId(p.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          onDragEnd={() => setDragId(null)}
+                          className="cursor-grab select-none text-sm leading-none text-ink-faint hover:text-ink-mute"
+                          title="드래그해서 순서 변경 — [저장]을 눌러야 확정됩니다"
+                        >
+                          ⠿
+                        </span>
+                      )}
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: STATUS_DOT[p.status] ?? STATUS_DOT.PLANNED }}
+                        title={labelOf('PROJECT_STATUS', p.status)}
+                      />
+                      {p.totalTasks > 0 ? (
+                        <Progress value={p.progress} />
+                      ) : (
+                        <span className="text-xs text-ink-faint">—</span>
+                      )}
+                    </div>
                   </td>
-                  <td className="td min-w-[180px]">
+                  <td className="td min-w-[160px]">
                     <Link
                       href={`/projects/${p.id}`}
                       className="font-medium hover:text-brand-deep hover:underline"
@@ -265,19 +449,28 @@ export function ProjectBoard({
                     </Link>
                     {p.isDelayed && <span className="badge ml-1.5 bg-red-50 text-neg">지연</span>}
                   </td>
-                  <td className="td w-[130px]">
-                    {p.totalTasks > 0 ? <Progress value={p.progress} /> : <span className="text-xs text-ink-faint">—</span>}
-                  </td>
                   <td className="td">{p.leadDepartment ? <Tag name={p.leadDepartment.name} /> : '—'}</td>
                   <td className="td">{p.owner ? <Tag name={p.owner.name} /> : '—'}</td>
-                  <td className="td whitespace-nowrap font-num text-xs text-ink-mute">
-                    {kdate(p.startDate) || '—'}
+                  <td className="td whitespace-nowrap">
+                    <button
+                      onClick={() => setOpenId(open ? null : p.id)}
+                      className="inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-num text-sm transition-colors hover:bg-line-soft"
+                      title="클릭하면 계약금액·예산·미수금·수금·지출·미지급·예상손익 상세가 펼쳐집니다"
+                      aria-expanded={open}
+                    >
+                      <span className="font-medium">{num(p.contractAmount)}</span>
+                      <span
+                        className={`text-[12px] text-ink-faint transition-transform ${open ? 'rotate-180' : ''}`}
+                      >
+                        ▾
+                      </span>
+                    </button>
                   </td>
-                  <td className="td whitespace-nowrap font-num text-xs text-ink-mute">
-                    {kdate(p.planEndDate) || '—'}
+                  <td className="td whitespace-nowrap font-num text-xs text-ink-mute" title="시작 ~ 마감">
+                    {start || end ? `${start ? `${start} ` : ''}~${end ? ` ${end}` : ''}` : '—'}
                   </td>
-                  <td className="td max-w-[180px] truncate text-xs text-ink-soft" title={p.goal ?? undefined}>
-                    {p.goal || '—'}
+                  <td className="td">
+                    <GoalCell p={p} draft={drafts[p.id]} editable={editable} onDraft={(v) => setGoalDraft(p, v)} />
                   </td>
                   <td className="td whitespace-nowrap">
                     <button
@@ -301,30 +494,9 @@ export function ProjectBoard({
                       <span className={`text-[11px] transition-transform ${taskOpen ? 'rotate-180' : ''}`}>▾</span>
                     </button>
                   </td>
-                  <td className="td text-right">
-                    {fin ? (
-                      <button
-                        onClick={() => setOpenId(open ? null : p.id)}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-num text-sm transition-colors hover:bg-line-soft"
-                        title="클릭하면 매출채권/현금유입/현금유출/미지급채무 상세가 펼쳐집니다"
-                        aria-expanded={open}
-                      >
-                        <span className={`font-medium ${signClass(fin.expectedProfit)}`}>
-                          {compact(fin.expectedProfit)}
-                        </span>
-                        <span
-                          className={`text-[12px] text-ink-faint transition-transform ${open ? 'rotate-180' : ''}`}
-                        >
-                          ▾
-                        </span>
-                      </button>
-                    ) : (
-                      <span className="text-xs text-ink-faint">—</span>
-                    )}
-                  </td>
                 </tr>
                 {taskOpen && <TaskPanel projectId={p.id} colSpan={COLS} onChanged={onTasksChanged} />}
-                {open && fin && <FinanceRow fin={fin} colSpan={COLS} />}
+                {open && <MoneyRow p={p} fin={fin} colSpan={COLS} />}
               </Fragment>
             );
           })}
@@ -332,4 +504,4 @@ export function ProjectBoard({
       </table>
     </div>
   );
-}
+});

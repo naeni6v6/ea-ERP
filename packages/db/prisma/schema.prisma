@@ -33,6 +33,21 @@ model Company {
   auditLogs     AuditLog[]
   corporateCards CorporateCard[]
   cardExpenses   CardExpense[]
+  notices       Notice[]
+}
+
+/// 오늘의 공지 — 대시보드 상단 현수막 배너. 날짜당 1건, 확인해야 다른 업무 진행 가능
+model Notice {
+  id         String   @id @default(cuid())
+  companyId  String
+  noticeDate DateTime @db.Date
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, noticeDate])
 }
 
 /// 사업유형 (독립 분석축, 하드코딩 금지)
@@ -175,6 +190,8 @@ model Project {
   targetProfit     BigInt    @default(0)
   /// 직원(EMPLOYEE)에게 프로젝트 재무요약 공개 여부 (Q5 기본값 false)
   financeVisibleToMembers Boolean @default(false)
+  /// 보드 표시 순서 — 드래그로 변경, 낮을수록 위
+  sortOrder        Int       @default(0)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
