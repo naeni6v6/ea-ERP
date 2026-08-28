@@ -4,14 +4,14 @@ import { forwardRef, Fragment, useEffect, useImperativeHandle, useMemo, useRef, 
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
-import { num, signClass } from '@/lib/format';
+import { big, num, signClass } from '@/lib/format';
 import { Empty, Progress, Spinner } from '@/components/ui';
 import type { Project, ProjectFinance, Task } from '@/lib/types';
 
 /**
- * 노션 스타일 프로젝트 보드 — 진행률(상태 점 포함) · 태그(부서·담당자) · 계약금액 · 기간 · 목표 · 할 일.
+ * 노션 스타일 프로젝트 보드 — 진행률(상태 점 포함) · 태그(부서·담당자) · 수주금액 · 기간 · 목표 · 할 일.
  * 태그 색은 이름 해시로 고정되므로 같은 부서·사람은 어디서나 같은 색으로 보인다.
- * 계약금액을 클릭하면 해당 행 아래로 계약금액·예산·미수금·수금·지출·미지급·예상손익 상세가 펼쳐진다.
+ * 수주금액을 클릭하면 해당 행 아래로 수주금액·실행예산·매출채권·누적수금액·누적집행액·미지급채무·현금수지 상세가 펼쳐진다.
  * 지연 프로젝트가 항상 위로 오고, 관리자는 ⠿ 핸들 드래그로 순서를 바꾸고 목표를 그 자리에서 입력한 뒤
  * 상단 [저장] 버튼으로 한 번에 저장한다(save()는 ref로 노출).
  */
@@ -78,11 +78,12 @@ const kdate = (d: string | null | undefined): string => {
 
 /** 펼침 행의 자금 상세 항목 — 회계 용어 기준 */
 const FIN_ITEMS: { key: keyof ProjectFinance; label: string; hint: string; tone: 'in' | 'out' | 'net' }[] = [
-  { key: 'receivable', label: '미수금 (받을 돈)', hint: '회수 예정 매출채권 잔액', tone: 'in' },
-  { key: 'received', label: '수금액 (받은 돈)', hint: '프로젝트 귀속 입금 합계', tone: 'in' },
-  { key: 'paid', label: '지출액 (나간 돈)', hint: '프로젝트 귀속 출금 합계', tone: 'out' },
-  { key: 'payable', label: '미지급금 (낼 돈)', hint: '미지급금 + 지급예정액', tone: 'out' },
-  { key: 'expectedProfit', label: '예상손익', hint: '유입+채권 − 유출·채무', tone: 'net' },
+  { key: 'receivable', label: '매출채권', hint: '회수 예정 매출채권', tone: 'in' },
+  { key: 'received', label: '누적수금액', hint: '프로젝트 귀속 입금 합계', tone: 'in' },
+  { key: 'paid', label: '누적집행액', hint: '프로젝트 귀속 집행 합계', tone: 'out' },
+  { key: 'payable', label: '미지급채무', hint: '확정된 미지급 채무', tone: 'out' },
+  // 현금수지는 서버 expectedProfit(채권·채무 포함) 대신 순수 현금 기준(수금 − 집행)으로 화면에서 계산한다
+  { key: 'expectedProfit', label: '프로젝트 현금수지', hint: '누적수금액 − 누적집행액', tone: 'net' },
 ];
 
 /** 할 일 패널 — 보드에서 바로 체크/추가한다. 체크하면 진행률·완수율이 즉시 갱신된다. */
@@ -257,11 +258,11 @@ function GoalCell({
   );
 }
 
-/** 금액 상세 펼침 행 — 계약금액·예산 + (권한 시) 미수금·수금·지출·미지급·예상손익 */
+/** 금액 상세 펼침 행 — 수주금액·실행예산 + (권한 시) 매출채권·누적수금액·누적집행액·미지급채무·현금수지 */
 function MoneyRow({ p, fin, colSpan }: { p: Project; fin?: ProjectFinance; colSpan: number }) {
   const base: { label: string; v: string; hint: string; cls: string }[] = [
-    { label: '계약금액', v: p.contractAmount, hint: '계약 총액', cls: 'font-semibold text-ink' },
-    { label: '예산', v: p.budgetAmount, hint: '집행 가능 예산', cls: 'text-ink' },
+    { label: '수주금액', v: p.contractAmount, hint: '총 계약 수주금액', cls: 'font-semibold text-ink' },
+    { label: '실행예산', v: p.budgetAmount, hint: '프로젝트 승인 예산', cls: 'text-ink' },
   ];
   return (
     // 금액 상세 펼침 — 좌측 브랜드 액센트 + 진한 아래 구분선으로 다른 행과 확실히 구분한다
@@ -281,7 +282,8 @@ function MoneyRow({ p, fin, colSpan }: { p: Project; fin?: ProjectFinance; colSp
           ))}
           {fin ? (
             FIN_ITEMS.map((it) => {
-              const v = fin[it.key];
+              const v =
+                it.key === 'expectedProfit' ? (big(fin.received) - big(fin.paid)).toString() : fin[it.key];
               const cls =
                 it.tone === 'net' ? `font-semibold ${signClass(v)}` : it.tone === 'in' ? 'text-pos' : 'text-neg';
               return (
@@ -294,7 +296,7 @@ function MoneyRow({ p, fin, colSpan }: { p: Project; fin?: ProjectFinance; colSp
             })
           ) : (
             <div className="col-span-2 flex items-center rounded-lg border border-dashed border-line px-3 py-2 text-xs text-ink-faint sm:col-span-2 lg:col-span-5">
-              미수금·수금·지출 등 입출금 상세는 손익 열람 권한(대표·관리자)에서 표시됩니다.
+              매출채권·수금·집행 등 입출금 상세는 손익 열람 권한(대표·관리자)에서 표시됩니다.
             </div>
           )}
         </div>
@@ -396,7 +398,7 @@ export const ProjectBoard = forwardRef<
             <th className="th">프로젝트 명칭</th>
             <th className="th">담당부서</th>
             <th className="th">담당자</th>
-            <th className="th">계약금액</th>
+            <th className="th">수주금액</th>
             <th className="th">기간</th>
             <th className="th">프로젝트 목표</th>
             <th className="th">할 일</th>
@@ -466,7 +468,7 @@ export const ProjectBoard = forwardRef<
                     <button
                       onClick={() => setOpenId(open ? null : p.id)}
                       className="inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-num text-sm transition-colors hover:bg-line-soft"
-                      title="클릭하면 계약금액·예산·미수금·수금·지출·미지급·예상손익 상세가 펼쳐집니다"
+                      title="클릭하면 수주금액·실행예산·매출채권·누적수금액·누적집행액·미지급채무·현금수지 상세가 펼쳐집니다"
                       aria-expanded={open}
                     >
                       <span className="font-medium">{num(p.contractAmount)}</span>

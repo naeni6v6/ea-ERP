@@ -132,10 +132,10 @@ export function ProjectCreateModal({
               onChange={(e) => setPlanEndDate(e.target.value)}
             />
           </Field>
-          <Field label="계약금액">
+          <Field label="수주금액">
             <MoneyInput value={contractAmount} onChange={setContractAmount} />
           </Field>
-          <Field label="예산">
+          <Field label="실행예산">
             <MoneyInput value={budgetAmount} onChange={setBudgetAmount} />
           </Field>
         </div>
@@ -178,8 +178,8 @@ const HEADER_ALIASES: Record<string, string> = {
   status: 'status', 상태: 'status', 진행현황: 'status', 진행상태: 'status',
   startdate: 'startDate', 시작일: 'startDate', 시작날짜: 'startDate', 시작: 'startDate',
   planenddate: 'planEndDate', enddate: 'planEndDate', 종료예정일: 'planEndDate', 마감일: 'planEndDate', 마감날짜: 'planEndDate', 종료일: 'planEndDate', 마감: 'planEndDate',
-  contractamount: 'contractAmount', 계약금액: 'contractAmount', 계약금: 'contractAmount', 금액: 'contractAmount',
-  budgetamount: 'budgetAmount', budget: 'budgetAmount', 예산: 'budgetAmount',
+  contractamount: 'contractAmount', 수주금액: 'contractAmount', 계약금액: 'contractAmount', 계약금: 'contractAmount', 금액: 'contractAmount',
+  budgetamount: 'budgetAmount', budget: 'budgetAmount', 실행예산: 'budgetAmount', 예산: 'budgetAmount',
   goal: 'goal', 목표: 'goal', 프로젝트목표: 'goal',
 };
 
@@ -412,7 +412,7 @@ export function ProjectUploadModal({
 
   const downloadTemplate = () => {
     const tpl =
-      '﻿코드,프로젝트명,사업유형,주관부서,상태,시작일,마감일,계약금액,예산,목표\n' +
+      '﻿코드,프로젝트명,사업유형,주관부서,상태,시작일,마감일,수주금액,실행예산,목표\n' +
       'PRJ-101,신규 프로젝트 예시,,,진행,2026-09-01,2026-12-31,"100,000,000","60,000,000",목표를 적으세요\n';
     const url = URL.createObjectURL(new Blob([tpl], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
@@ -463,7 +463,7 @@ export function ProjectUploadModal({
                     <th className="th">주관부서</th>
                     <th className="th">상태</th>
                     <th className="th">기간</th>
-                    <th className="th text-right">계약금액</th>
+                    <th className="th text-right">수주금액</th>
                     <th className="th">비고</th>
                   </tr>
                 </thead>

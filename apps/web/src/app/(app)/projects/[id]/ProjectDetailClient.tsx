@@ -141,9 +141,9 @@ export function ProjectDetailClient() {
           <dl className="divide-y divide-line-soft text-sm">
             {(
               [
-                ['계약금액', p.contractAmount],
+                ['수주금액', p.contractAmount],
                 ['예상매출', p.expectedRevenue],
-                ['예산', p.budgetAmount],
+                ['실행예산', p.budgetAmount],
                 ['목표원가', p.targetCost],
                 ['목표이익', p.targetProfit],
               ] as const

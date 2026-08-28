@@ -108,7 +108,7 @@ export default function ProjectsCardsPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-ink-faint">계약금액</span>
+                  <span className="text-xs text-ink-faint">수주금액</span>
                   <span className="font-num font-semibold">{num(p.contractAmount)}원</span>
                 </div>
               </div>
