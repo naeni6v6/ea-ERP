@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
-import { dateTime, num } from '@/lib/format';
+import { big, dateTime, num, thisMonthSeoul } from '@/lib/format';
 import { MoneyInput } from '@/components/MoneyInput';
 import { Empty, ErrorBox, Field, Modal, Section, Spinner } from '@/components/ui';
 import type { Account, BankAccount, CardExpense, CardExpenseList, CardExpenseStatus, CorporateCard, Project, UserRow } from '@/lib/types';
@@ -41,103 +41,6 @@ function StatusChip({ status }: { status: CardExpenseStatus }) {
     <span className={`inline-block whitespace-nowrap rounded-md border px-2 py-0.5 text-[15px] font-semibold ${STATUS_CHIP[status]}`}>
       {STATUS_BADGE[status].label}
     </span>
-  );
-}
-
-/**
- * 항상 아래로 열리는 선택 메뉴.
- * 패널은 position:fixed — 표의 overflow 컨테이너에 잘리지 않는다. 스크롤/리사이즈 시 닫는다.
- */
-function PickerMenu({
-  value,
-  placeholder,
-  options,
-  onSelect,
-}: {
-  value: string | null | undefined;
-  placeholder: string;
-  options: { id: string; label: string }[];
-  onSelect: (id: string) => void;
-}) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const open = !!pos;
-
-  // 렌더된 실제 패널 높이 기준으로 화면 밖 넘침을 보정 (아래 공간 부족 시 위로 당김)
-  useEffect(() => {
-    if (!pos || !panelRef.current) return;
-    const r = panelRef.current.getBoundingClientRect();
-    const over = r.bottom - (window.innerHeight - 8);
-    if (over > 0) setPos((p) => (p ? { ...p, top: Math.max(8, p.top - over) } : p));
-  }, [pos]);
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setPos(null);
-    const onDown = (ev: MouseEvent) => {
-      if (ref.current && !ref.current.contains(ev.target as Node)) close();
-    };
-    const onScroll = (ev: Event) => {
-      // 패널 내부 옵션 목록 스크롤은 유지, 바깥(표/페이지) 스크롤만 닫는다
-      if (ref.current && ref.current.contains(ev.target as Node)) return;
-      close();
-    };
-    document.addEventListener('mousedown', onDown);
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', close);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [open]);
-  const current = options.find((o) => o.id === value)?.label;
-  return (
-    <div ref={ref}>
-      <button
-        type="button"
-        className="input flex !w-auto min-w-[130px] items-center justify-between gap-1.5 !py-1.5 text-left text-sm"
-        onClick={(ev) => {
-          if (open) return setPos(null);
-          const r = ev.currentTarget.getBoundingClientRect();
-          setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 272)) });
-        }}
-      >
-        <span className={`truncate ${current ? '' : 'text-ink-faint'}`}>{current ?? placeholder}</span>
-        <span className="shrink-0 text-xs text-ink-faint">▾</span>
-      </button>
-      {open && (
-        <div
-          ref={panelRef}
-          className="fixed z-50 max-h-60 w-64 overflow-auto rounded-lg border border-line bg-white py-1 shadow-lift"
-          style={{ top: pos!.top, left: pos!.left }}
-        >
-          <button
-            type="button"
-            className="block w-full px-3 py-2 text-left text-sm text-ink-faint hover:bg-line-soft"
-            onClick={() => {
-              onSelect('');
-              setPos(null);
-            }}
-          >
-            {placeholder}
-          </button>
-          {options.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              className={`block w-full truncate px-3 py-2 text-left text-sm hover:bg-line-soft ${o.id === value ? 'font-medium text-brand-deep' : ''}`}
-              onClick={() => {
-                onSelect(o.id);
-                setPos(null);
-              }}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -184,7 +87,7 @@ const SOURCE_LABEL: Record<CorporateCard['source'], string> = {
 };
 
 /** 'YYYY-MM' 이번 달 (KST) */
-const thisMonth = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7);
+const thisMonth = thisMonthSeoul;
 const shiftMonth = (m: string, d: number) => {
   const [y, mo] = m.split('-').map(Number);
   const dt = new Date(Date.UTC(y, mo - 1 + d, 1));
@@ -722,7 +625,7 @@ function ExpenseList({
             <div className="flex items-center justify-end gap-1 border-t border-line-soft px-4 py-2.5 text-xs text-ink-mute">
               1 - {rows.length} (합계{' '}
               <span className="font-num font-medium text-ink">
-                {num(rows.reduce((a, r) => a + BigInt(r.amount), 0n).toString())}원
+                {num(rows.reduce((a, r) => a + big(r.amount), 0n))}원
               </span>
               ) / 총 {rows.length}개
             </div>

@@ -6,13 +6,10 @@ import { api } from '@/lib/api';
 import { useFilters } from '@/lib/filters';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
-import { num } from '@/lib/format';
+import { num, sdate } from '@/lib/format';
 import { ProjectUploadModal } from '@/components/ProjectModals';
 import { Empty, ErrorBox, Progress, Spinner, StatusBadge } from '@/components/ui';
 import type { Project } from '@/lib/types';
-
-/** "2026-08-28" → "2026.08.28" */
-const sdate = (d: string | null | undefined) => (d ? d.slice(0, 10).replace(/-/g, '.') : '');
 
 /**
  * 프로젝트 목록 — 카드형. 카드를 누르면 상세 페이지(/projects/[id])가 열린다.

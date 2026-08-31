@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
-import { compact, dateTime, num, signClass } from '@/lib/format';
+import { big, compact, dateTime, num, seoulYmd, signClass, todaySeoul } from '@/lib/format';
 import { EntryFormModal } from '@/components/EntryFormModal';
 import { MoneyInput } from '@/components/MoneyInput';
 import { Empty, ErrorBox, Field, Kpi, Modal, Section, Spinner, StatusBadge } from '@/components/ui';
@@ -16,7 +16,6 @@ import type {
   Reserve,
   TreasuryKpi,
 } from '@/lib/types';
-import { big } from '@/lib/format';
 
 type Tab = 'accounts' | 'inbox' | 'reserves' | 'planned';
 
@@ -96,14 +95,12 @@ export default function TreasuryPage() {
 
 /* ───────────────────────── 자금 달력 ───────────────────────── */
 
-const seoulYmdOf = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(iso));
-
 /**
  * 자금 달력 — 실제 입금(초록)·출금(빨강)과 입금 예정(초록 점선)·지급 예정(빨강 점선)을 날짜별로 본다.
  * 날짜를 클릭하면 상세와 함께 "입금 예정(잔금일)" 등록 폼이 열린다 (예: 9/30 +500만 '계약 잔금').
  */
 function CashCalendar({ onChanged }: { onChanged: () => void }) {
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  const today = todaySeoul();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [selected, setSelected] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -140,7 +137,7 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
     itemsByDay.get(k)!.push(it);
   };
   for (const t of txns.data ?? []) {
-    push(seoulYmdOf(t.txnAt), {
+    push(seoulYmd(t.txnAt), {
       amt: big(t.amount),
       dir: t.direction === 'IN' ? 'in' : 'out',
       planned: false,
@@ -194,7 +191,7 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
 
   const dayIncomes = (incomes.data ?? []).filter((p) => p.dueDate.slice(0, 10) === selected);
   const dayPayments = (payments.data ?? []).filter((p) => p.dueDate.slice(0, 10) === selected);
-  const dayTxns = (txns.data ?? []).filter((t) => seoulYmdOf(t.txnAt) === selected);
+  const dayTxns = (txns.data ?? []).filter((t) => seoulYmd(t.txnAt) === selected);
 
   return (
     <Section

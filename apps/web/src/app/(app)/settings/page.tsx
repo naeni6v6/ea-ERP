@@ -8,34 +8,30 @@ import { dateTime } from '@/lib/format';
 import { Empty, ErrorBox, Field, Modal, Section, Spinner } from '@/components/ui';
 import type { AuditLog, Project, Role, RoleScope, ScopeType, UserRow } from '@/lib/types';
 
-type Tab = 'users' | 'audit';
+type Tab = 'me' | 'users' | 'audit';
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>('users');
+  const [tab, setTab] = useState<Tab>('me');
   const { isCeo } = useSession();
-  // 메뉴는 대표에게만 보이지만, URL 직접 접근도 막는다
-  if (!isCeo)
-    return (
-      <div className="card-pad mx-auto max-w-sm text-center text-sm">
-        <p className="font-medium">설정은 대표만 접근할 수 있습니다</p>
-        <p className="mt-1 text-ink-mute">권한이 필요하면 대표에게 요청하세요.</p>
-      </div>
-    );
+  // 내 정보는 누구나, 사용자·권한과 감사 로그는 대표만
+  const tabs: [Tab, string][] = isCeo
+    ? [
+        ['me', '내 정보'],
+        ['users', '사용자 · 권한'],
+        ['audit', '감사 로그'],
+      ]
+    : [['me', '내 정보']];
+  const active = tabs.some(([k]) => k === tab) ? tab : 'me';
   return (
     <div className="space-y-5">
       <h1 className="page-title">설정</h1>
       <div className="flex gap-0.5 border-b border-line">
-        {(
-          [
-            ['users', '사용자 · 권한'],
-            ['audit', '감사 로그'],
-          ] as const
-        ).map(([key, label]) => (
+        {tabs.map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === key
+              active === key
                 ? 'border-brand font-medium text-brand-deep'
                 : 'border-transparent text-ink-mute hover:text-ink'
             }`}
@@ -44,7 +40,126 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
-      {tab === 'users' ? <UsersTab /> : <AuditTab />}
+      {active === 'me' ? <MyAccountTab /> : active === 'users' ? <UsersTab /> : <AuditTab />}
+    </div>
+  );
+}
+
+/** 내 정보 — 본인 계정 확인 + 비밀번호 변경. 대표의 '비밀번호 재설정'과 달리 현재 비밀번호를 확인한다. */
+function MyAccountTab() {
+  const { me, roles } = useSession();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState('');
+
+  const close = () => {
+    setOpen(false);
+    setCurrent('');
+    setNext('');
+    setConfirm('');
+    setError('');
+  };
+
+  const submit = async () => {
+    if (next !== confirm) return setError('새 비밀번호가 서로 다릅니다');
+    if (next.length < 8) return setError('새 비밀번호는 8자 이상이어야 합니다');
+    setBusy(true);
+    setError('');
+    try {
+      await api.post('/auth/change-password', { currentPassword: current, newPassword: next });
+      close();
+      setDone('비밀번호가 변경되었습니다.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '비밀번호 변경에 실패했습니다');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!me) return <Spinner />;
+
+  return (
+    <div className="max-w-xl space-y-4">
+      <Section title="내 정보">
+        <dl className="divide-y divide-line-soft text-sm">
+          {(
+            [
+              ['이름', me.name],
+              ['이메일', me.email],
+              ['소속 부서', me.department || '—'],
+              ['권한', roles.map((r) => ROLE_LABEL[r]).join(', ') || '—'],
+            ] as const
+          ).map(([k, v]) => (
+            <div key={k} className="flex justify-between gap-4 px-4 py-2.5">
+              <dt className="shrink-0 text-ink-mute">{k}</dt>
+              <dd className="text-right">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </Section>
+
+      <Section title="비밀번호" desc="본인만 바꿀 수 있습니다. 잊었다면 대표에게 재설정을 요청하세요.">
+        <div className="flex items-center justify-between gap-4 px-4 py-4">
+          <p className="text-sm text-ink-mute">
+            {done || '주기적으로 바꾸는 것을 권장합니다.'}
+          </p>
+          <button className="btn-primary shrink-0" onClick={() => setOpen(true)}>
+            비밀번호 재설정
+          </button>
+        </div>
+      </Section>
+
+      <Modal open={open} title="비밀번호 재설정" onClose={close}>
+        <div className="space-y-3">
+          <Field label="현재 비밀번호" required>
+            <input
+              type="password"
+              className="input"
+              autoComplete="current-password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+            />
+          </Field>
+          <Field label="새 비밀번호" required hint="8자 이상">
+            <input
+              type="password"
+              className="input"
+              autoComplete="new-password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+            />
+          </Field>
+          <Field label="새 비밀번호 확인" required>
+            <input
+              type="password"
+              className="input"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+            />
+          </Field>
+          {error && <p className="text-xs text-neg">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button className="btn-ghost" onClick={close} disabled={busy}>
+              취소
+            </button>
+            <button
+              className="btn-primary"
+              onClick={submit}
+              disabled={busy || !current || next.length < 8 || !confirm}
+            >
+              {busy ? '변경 중…' : '변경'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

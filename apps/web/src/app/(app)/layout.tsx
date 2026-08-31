@@ -64,7 +64,8 @@ const NAV: NavItem[] = [
       { href: '/by-period', label: '기간별', mobileLabel: '기간별', show: (s) => s.isAdmin },
     ],
   },
-  { href: '/settings', label: '설정', show: (s) => s.isCeo },
+  // 설정 안에 '내 정보'(비밀번호 변경)가 있어 전 직원에게 보인다. 사용자·권한/감사 로그 탭은 대표에게만 노출.
+  { href: '/settings', label: '설정', show: () => true },
 ];
 
 /** 팀 Slack 바로가기 — 주소는 NEXT_PUBLIC_SLACK_URL (기본값은 내 워크스페이스로 리다이렉트되는 app.slack.com) */
@@ -363,9 +364,9 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* 오늘의 공지 — 헤더 바로 아래, 화면 가로 전체를 채우는 띠 */}
-        <NoticeBanner onBlockChange={setNoticeBlocked} />
         <main className="mx-auto w-full max-w-[1400px] animate-fade-up px-4 py-6 sm:px-6">
+          {/* 오늘의 공지 — 본문 최상단 카드. 차단 대상(children) 바깥에 두어 확인 버튼이 살아 있어야 한다 */}
+          <NoticeBanner onBlockChange={setNoticeBlocked} />
           <div
             className={noticeBlocked ? 'pointer-events-none select-none opacity-60 blur-[3px]' : ''}
             aria-hidden={noticeBlocked || undefined}

@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { compact, num } from '@/lib/format';
-import { Empty, ErrorBox, Field, Progress, Section, Spinner, StatusBadge } from '@/components/ui';
+import { Empty, ErrorBox, Progress, Section, Spinner, StatusBadge } from '@/components/ui';
 import type { Project, Task, UserRow } from '@/lib/types';
 
 export function ProjectDetailClient() {

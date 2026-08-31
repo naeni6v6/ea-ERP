@@ -14,6 +14,7 @@ export interface Me {
   name: string;
   email: string;
   companyId: string;
+  department?: string | null;
   roles: RoleScope[];
   effectiveScope: {
     isCeo: boolean;

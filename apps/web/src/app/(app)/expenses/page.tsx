@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
-import { big, compact, num } from '@/lib/format';
+import { big, compact, num, seoulYmd } from '@/lib/format';
 import { Empty, ErrorBox, Kpi, Section, Spinner } from '@/components/ui';
 import type { BankTransaction, CardExpenseList } from '@/lib/types';
 
@@ -15,8 +15,6 @@ import type { BankTransaction, CardExpenseList } from '@/lib/types';
  * 계좌(은행) 지출은 대표에게만 보이고, 카드 지출은 권한 범위대로(직원은 본인 카드) 집계된다.
  */
 
-const seoulYmd = (d: Date | string) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(typeof d === 'string' ? new Date(d) : d);
 const monthKey = (ymd: string) => ymd.slice(0, 7);
 const monthLabel = (ym: string) => `${ym.slice(2, 4)}.${Number(ym.slice(5, 7))}월`;
 const daysOf = (ym: string) => new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0).getDate();

@@ -5,14 +5,9 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
-import { todaySeoul } from '@/lib/format';
+import { seoulYmd, todaySeoul, WEEKDAY } from '@/lib/format';
 import { Empty, ErrorBox, Section, Spinner, StatusBadge } from '@/components/ui';
 import type { Task, UserRow, WorkLog } from '@/lib/types';
-
-const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
-
-/** Date → 서울 기준 YYYY-MM-DD */
-const seoulYmd = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(d);
 
 const kdateLabel = (ymd: string) => `${ymd.replace(/-/g, '.')} (${WEEKDAY[new Date(`${ymd}T00:00:00+09:00`).getDay()]})`;
 

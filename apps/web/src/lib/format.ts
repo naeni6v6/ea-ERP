@@ -50,8 +50,21 @@ export const ymd = (d: Date | string | null | undefined): string => {
   return s.slice(0, 10);
 };
 
-export const todaySeoul = (): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+/** Date | ISO문자열 → 서울 기준 "YYYY-MM-DD". 날짜 변환은 전부 이걸 거친다. */
+export const seoulYmd = (d: Date | string): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(typeof d === 'string' ? new Date(d) : d);
+
+export const todaySeoul = (): string => seoulYmd(new Date());
+
+/** 서울 기준 이번 달 "YYYY-MM" */
+export const thisMonthSeoul = (): string => todaySeoul().slice(0, 7);
+
+/** getDay() 인덱스용 요일 라벨 (일요일=0) — 달력 헤더의 월요일 시작 배열과는 다르다 */
+export const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** "2026-08-28" → "2026.08.28" */
+export const sdate = (d: string | null | undefined): string =>
+  d ? d.slice(0, 10).replace(/-/g, '.') : '';
 
 export const dateTime = (d: string | null | undefined): string => {
   if (!d) return '';

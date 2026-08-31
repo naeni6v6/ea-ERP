@@ -4,7 +4,7 @@ import { forwardRef, Fragment, useEffect, useImperativeHandle, useMemo, useRef, 
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
-import { big, num, signClass } from '@/lib/format';
+import { big, num, sdate, signClass, WEEKDAY } from '@/lib/format';
 import { Empty, Progress, Spinner } from '@/components/ui';
 import type { Project, ProjectFinance, Task } from '@/lib/types';
 
@@ -60,11 +60,6 @@ const STATUS_DOT: Record<string, string> = {
 
 /** 정렬 우선순위 — 긴급 > 지연 > 나머지 */
 const projectRank = (p: Project) => (p.status === 'URGENT' ? 0 : p.isDelayed ? 1 : 2);
-
-const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
-
-/** "2026-08-28" → "2026.08.28" — 기간 칸 최소 표기 */
-const sdate = (d: string | null | undefined): string => (d ? d.slice(0, 10).replace(/-/g, '.') : '');
 
 /** "2026-08-26" → "26.08.26 (수)" */
 const kdate = (d: string | null | undefined): string => {

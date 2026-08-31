@@ -187,8 +187,11 @@ const normKey = (k: string) => HEADER_ALIASES[k.trim().toLowerCase().replace(/[\
 
 /** "100,000,000" / "1억" 아닌 순수 숫자·콤마만 처리 — 콤마·원·공백 제거 */
 const normAmount = (v: unknown): string => {
+  // 부호는 맨 앞 하나만 인정 — "5-" 같은 값이 BigInt()를 깨뜨리지 않게
   const s = String(v ?? '').replace(/[^\d-]/g, '');
-  return s === '' || s === '-' ? '0' : String(BigInt(s));
+  const digits = s.replace(/-/g, '');
+  if (digits === '') return '0';
+  return `${s.startsWith('-') ? '-' : ''}${BigInt(digits)}`;
 };
 
 /** 2026-07-27 / 2026.7.27 / 26/07/27 → "2026-07-27" */

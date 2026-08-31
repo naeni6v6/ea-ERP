@@ -28,8 +28,11 @@ export function MoneyInput({
         placeholder={placeholder}
         disabled={disabled}
         onChange={(e) => {
-          const raw = e.target.value.replace(/[^\d-]/g, '');
-          onChange(raw === '' || raw === '-' ? '' : String(BigInt(raw)));
+          // 부호는 맨 앞 하나만 인정한다 — "5-", "1-2" 같은 입력이 BigInt()를 깨뜨리지 않게
+          const cleaned = e.target.value.replace(/[^\d-]/g, '');
+          const digits = cleaned.replace(/-/g, '');
+          if (digits === '') return onChange('');
+          onChange(`${cleaned.startsWith('-') ? '-' : ''}${BigInt(digits)}`);
         }}
       />
       <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">
