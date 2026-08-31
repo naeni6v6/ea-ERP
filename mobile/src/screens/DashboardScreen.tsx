@@ -4,13 +4,14 @@ import { Text } from '../components/themed';
 import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCards, useDashboard, useUnsubmitted, visibleRows } from '../api/queries';
+import { useCards, useDashboard, useMonthlyPnl, useUnsubmitted, visibleRows } from '../api/queries';
 import type { ProjectKpiRow } from '../api/types';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { NoticeBanner } from '../components/NoticeBanner';
 import { Kpi, KpiGrid } from '../components/Kpi';
 import { Progress } from '../components/Progress';
 import { CardSummaryItem } from '../components/CardSummaryItem';
+import { TrendBars } from '../components/TrendBars';
 import { Empty, ErrorView, Spinner } from '../components/ui';
 import { big, won } from '../lib/money';
 import { colors, ft, numFont } from '../theme';
@@ -31,6 +32,8 @@ export function DashboardScreen() {
   const dash = useDashboard();
   const cards = useCards();
   const unsub = useUnsubmitted();
+  // 손익 추이 그래프 — 대시보드 응답에 pnl이 있는 권한(CEO/ADMIN)에서만 조회
+  const monthly = useMonthlyPnl(!!dash.data?.pnl);
   const unsubCount = visibleRows(unsub.data?.rows).length;
 
   const refresh = () => {
@@ -116,6 +119,7 @@ export function DashboardScreen() {
                   <Kpi label="영업이익" value={d.pnl.operatingProfit} tone={big(d.pnl.operatingProfit) < 0n ? 'neg' : undefined} />
                   <Kpi label="당기순이익" value={d.pnl.netIncome} tone={big(d.pnl.netIncome) < 0n ? 'neg' : 'pos'} />
                 </KpiGrid>
+                {monthly.data && monthly.data.length > 0 && <TrendBars data={monthly.data} />}
               </Section>
             )}
 

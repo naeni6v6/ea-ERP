@@ -39,7 +39,7 @@ function Tag({ name }: { name: string }) {
   const c = hashTag(name);
   return (
     <span
-      className="inline-flex max-w-[88px] items-center truncate rounded px-1.5 py-0.5 text-xs font-medium"
+      className="inline-flex max-w-[150px] items-center truncate rounded px-1.5 py-0.5 text-xs font-medium"
       style={{ background: c.bg, color: c.fg }}
       title={name}
     >
@@ -390,7 +390,7 @@ export const ProjectBoard = forwardRef<
         <thead className="border-b border-line-soft">
           <tr>
             <th className="th">진행률</th>
-            <th className="th !pl-10">프로젝트 명칭</th>
+            <th className="th w-[26%] !pl-4">프로젝트 명칭</th>
             <th className="th">담당부서</th>
             <th className="th">담당자</th>
             <th className="th">수주금액</th>
@@ -448,7 +448,7 @@ export const ProjectBoard = forwardRef<
                       )}
                     </div>
                   </td>
-                  <td className="td min-w-[150px] !pl-10">
+                  <td className="td min-w-[150px] !pl-4">
                     <Link
                       href={`/projects/${p.id}`}
                       className="font-medium hover:text-brand-deep hover:underline"

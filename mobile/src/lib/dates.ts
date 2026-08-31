@@ -48,6 +48,23 @@ export const thisMonthSeoul = (): { from: string; to: string } => {
   return { from: `${t.slice(0, 7)}-01`, to: t };
 };
 
+/** 최근 N개월 [라벨, from, to] — 웹 lib/monthly.ts와 동일 규칙. 최신 달이 앞, 이번 달은 오늘까지 */
+export const recentMonths = (n = 6): { short: string; from: string; to: string }[] => {
+  const today = todaySeoul();
+  const y = Number(today.slice(0, 4));
+  const m = Number(today.slice(5, 7));
+  const out: { short: string; from: string; to: string }[] = [];
+  for (let i = 0; i < n; i++) {
+    const total = y * 12 + (m - 1) - i;
+    const yy = Math.floor(total / 12);
+    const mm = (total % 12) + 1;
+    const ym = `${yy}-${p2(mm)}`;
+    const lastDay = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+    out.push({ short: `${mm}월`, from: `${ym}-01`, to: i === 0 ? today : `${ym}-${p2(lastDay)}` });
+  }
+  return out;
+};
+
 /** "HH:MM" 시각 표시용 — 마지막 조회 시각 */
 export const clockLabel = (epochMs: number): string => {
   const { m, d, hh, mm } = kstParts(new Date(epochMs));

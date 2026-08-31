@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
+import { recentMonths } from '../lib/dates';
 import type {
   CardExpense,
   CodeValue,
@@ -83,6 +84,27 @@ export const useProject = (id: string) =>
 
 export const useTasks = (projectId: string) =>
   useQuery({ queryKey: qk.tasks(projectId), queryFn: () => api.get<Task[]>(`/projects/${projectId}/tasks`) });
+
+/** 최근 6개월 월별 손익 — 손익 추이 그래프용. CEO/ADMIN 전용(/metrics/pnl이 403이면 비활성) */
+export const useMonthlyPnl = (enabled: boolean) =>
+  useQuery({
+    queryKey: ['pnl', 'monthly'],
+    enabled,
+    queryFn: async () => {
+      const months = recentMonths(6);
+      const results = await Promise.all(
+        months.map((mo) =>
+          api.get<{ sales: string; operatingProfit: string }>(
+            `/metrics/pnl?preset=custom&from=${mo.from}&to=${mo.to}`,
+          ),
+        ),
+      );
+      // 화면은 왼→오 시간순이 자연스러우니 과거가 앞이 되게 뒤집는다
+      return months
+        .map((mo, i) => ({ short: mo.short, sales: results[i].sales, operatingProfit: results[i].operatingProfit }))
+        .reverse();
+    },
+  });
 
 /** 코드값 라벨 — 프로젝트/태스크 상태 표기는 설정의 코드값을 따른다 (웹 labelOf와 동일) */
 export const useCodeLabel = () => {
