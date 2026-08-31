@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "모션브릿지",
+    "slug": "motionbridge-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "motionbridge",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "kr.motionbridge.erp"
+    },
+    "android": {
+      "package": "kr.motionbridge.erp",
+      "adaptiveIcon": {
+        "backgroundColor": "#f5911e",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        { "faceIDPermission": "잠금 해제에 Face ID를 사용합니다." }
+      ]
+    ],
+    "extra": {
+      "apiBaseProd": "https://erp-api.example.com/api"
+    }
+  }
+}

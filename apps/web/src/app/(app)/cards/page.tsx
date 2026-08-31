@@ -885,6 +885,7 @@ function CardMaster({
                   <th className="th">소지자</th>
                   <th className="th">결제계좌</th>
                   <th className="th">수집</th>
+                  <th className="th text-right">월 한도</th>
                   <th className="th text-right">미제출</th>
                   <th className="th" />
                 </tr>
@@ -910,6 +911,7 @@ function CardMaster({
                     <td className="td">{c.holder?.name ?? <span className="text-ink-faint">미지정</span>}</td>
                     <td className="td text-ink-mute">{c.bankAccount ? `${c.bankAccount.alias} (${c.bankAccount.bankName})` : '—'}</td>
                     <td className="td text-xs text-ink-mute">{SOURCE_LABEL[c.source]}</td>
+                    <td className="td-num text-ink-mute">{c.monthlyLimit ? `${num(c.monthlyLimit)}원` : '—'}</td>
                     <td className="td-num">
                       {c.pendingCount > 0 ? <span className="font-medium text-warn">{c.pendingCount}건</span> : '0건'}
                     </td>
@@ -977,6 +979,7 @@ function CardFormModal({
   const [last4, setLast4] = useState('');
   const [holderUserId, setHolderUserId] = useState('');
   const [bankAccountId, setBankAccountId] = useState('');
+  const [monthlyLimit, setMonthlyLimit] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -990,6 +993,7 @@ function CardFormModal({
     setLast4(card?.last4 ?? '');
     setHolderUserId(card?.holderUserId ?? '');
     setBankAccountId(card?.bankAccountId ?? '');
+    setMonthlyLimit(card?.monthlyLimit ?? '');
     setIsActive(card?.isActive ?? true);
     setError('');
   }, [open, card]);
@@ -1005,6 +1009,7 @@ function CardFormModal({
         last4: last4 || undefined,
         holderUserId: holderUserId || null,
         bankAccountId: cardType === 'CHECK' ? bankAccountId || null : null,
+        monthlyLimit: monthlyLimit || null,
         isActive,
       };
       if (card) await api.patch(`/cards/${card.id}`, body);
@@ -1061,6 +1066,9 @@ function CardFormModal({
               </select>
             </Field>
           )}
+          <Field label="월 한도" hint="비워두면 한도 미설정 — 앱의 잔여한도 계산에 쓰입니다">
+            <MoneyInput value={monthlyLimit} onChange={setMonthlyLimit} />
+          </Field>
         </div>
         {card && (
           <label className="flex items-center gap-2 text-sm">

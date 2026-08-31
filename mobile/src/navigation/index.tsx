@@ -1,0 +1,114 @@
+import React from 'react';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../auth/AuthContext';
+import { useUnsubmitted, visibleRows } from '../api/queries';
+import { LoginScreen } from '../screens/LoginScreen';
+import { HomeScreen } from '../screens/HomeScreen';
+import { BulkSubmitScreen } from '../screens/BulkSubmitScreen';
+import { ApprovalsScreen } from '../screens/ApprovalsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { ExpenseDetailScreen } from '../screens/ExpenseDetailScreen';
+import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
+import { Spinner } from '../components/ui';
+import { colors } from '../theme';
+import type { MainTabParamList, RootStackParamList } from './types';
+import { View } from 'react-native';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
+
+const navTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.brand,
+    background: colors.bg,
+    card: colors.bg,
+    text: colors.ink,
+    border: colors.line,
+  },
+};
+
+const TAB_ICON: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> = {
+  Home: 'card-outline',
+  Submit: 'checkmark-done-outline',
+  Approvals: 'shield-checkmark-outline',
+  Profile: 'person-outline',
+};
+
+function Tabs() {
+  const { isCeo } = useAuth();
+  const unsub = useUnsubmitted();
+  const unsubCount = visibleRows(unsub.data?.rows).length;
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => <Ionicons name={TAB_ICON[route.name]} color={color} size={size} />,
+        tabBarActiveTintColor: colors.brandDeep,
+        tabBarInactiveTintColor: colors.inkFaint,
+        headerTitleStyle: { fontWeight: '800', color: colors.ink },
+        headerShadowVisible: false,
+        tabBarStyle: { borderTopColor: colors.line },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: '홈', headerTitle: '내 카드' }} />
+      <Tab.Screen
+        name="Submit"
+        component={BulkSubmitScreen}
+        options={{
+          title: '제출',
+          headerTitle: '지출 제출',
+          tabBarBadge: unsubCount > 0 ? unsubCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.neg, color: '#fff', fontSize: 11 },
+        }}
+      />
+      {isCeo && (
+        <Tab.Screen
+          name="Approvals"
+          component={ApprovalsScreen}
+          options={{ title: '승인함', headerTitle: '승인함' }}
+        />
+      )}
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: '내 정보', headerTitle: '내 정보' }} />
+    </Tab.Navigator>
+  );
+}
+
+export function RootNavigator() {
+  const { state } = useAuth();
+
+  if (state.status === 'loading') {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center' }}>
+        <Spinner />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer theme={navTheme}>
+      <Stack.Navigator
+        screenOptions={{
+          headerTitleStyle: { fontWeight: '800', color: colors.ink },
+          headerTintColor: colors.brandDeep,
+          headerShadowVisible: false,
+          headerBackButtonDisplayMode: 'minimal',
+        }}
+      >
+        {state.status === 'signedIn' ? (
+          <>
+            <Stack.Screen name="Main" component={Tabs} options={{ headerShown: false }} />
+            <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} options={{ title: '지출 상세' }} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: '비밀번호 변경' }} />
+          </>
+        ) : (
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}

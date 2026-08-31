@@ -306,6 +306,10 @@ export interface CorporateCard {
   bankAccountId: string | null;
   source: 'GOWID' | 'BANK' | 'MANUAL';
   isActive: boolean;
+  /** 월 한도(원, 정수 문자열). null이면 한도 미설정 */
+  monthlyLimit?: string | null;
+  /** 이번 달 이용금액(원, 정수 문자열) — 취소·제외 건 제외 합계 */
+  monthUsed?: string;
   holder?: { id: string; name: string } | null;
   bankAccount?: { id: string; alias: string; bankName: string } | null;
   pendingCount: number;

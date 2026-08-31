@@ -10,6 +10,8 @@ export class CardDto {
   @IsOptional() @IsString() bankAccountId?: string | null;
   @IsOptional() @IsEnum(CardSource) source?: CardSource;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  /** 월 한도(원, 정수 문자열). null·빈 문자열 = 한도 미설정 */
+  @IsOptional() @IsString() monthlyLimit?: string | null;
 }
 
 export class CardExpenseCreateDto {
@@ -61,4 +63,6 @@ export class UpdateCardDto {
   @IsOptional() @IsString() bankAccountId?: string | null;
   @IsOptional() @IsEnum(CardSource) source?: CardSource;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  /** 월 한도(원, 정수 문자열). null·빈 문자열 = 한도 미설정 */
+  @IsOptional() @IsString() monthlyLimit?: string | null;
 }

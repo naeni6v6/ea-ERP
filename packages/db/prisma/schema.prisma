@@ -149,6 +149,24 @@ model User {
   auditLogs   AuditLog[]
   heldCards   CorporateCard[] @relation("CardHolder")
   workLogs    WorkLog[]
+  refreshTokens RefreshToken[]
+}
+
+/// 모바일 앱 로그인 유지용 refresh 토큰 — 원문은 저장하지 않고 sha256 해시만 저장한다.
+/// 사용(회전) 시 revokedAt을 찍고 새 행을 만든다. 폐기된 토큰이 다시 오면 탈취로 보고 전체 폐기.
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  replacedById String? // 회전으로 대체된 새 토큰 id — 재사용 감지용
+  deviceInfo   String? // 예: "iPhone 15 / MotionBridge App"
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 /// 일일 업무 일지 — "그날 뭐 했는지" 자유 기록. 사람·날짜당 1건
@@ -612,6 +630,8 @@ model CorporateCard {
   cardType      CardType   @default(CREDIT)
   last4         String?
   holderUserId  String?
+  /// 월 사용 한도(원) — null이면 한도 미설정. 잔여한도 = monthlyLimit - 이번 달 이용금액
+  monthlyLimit  BigInt?
   /// 체크카드 결제계좌 — 이 계좌의 출금을 카드지출로 파생한다 (카드:계좌 = 1:1 전제)
   bankAccountId String?    @unique
   source        CardSource @default(MANUAL)
