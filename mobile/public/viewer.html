@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>모션브릿지 모바일 뷰어 — PC에서 앱 화면 점검</title>
+<style>
+:root{
+  --brand:#f5911e; --brand-deep:#b45f05; --brand-soft:#fdeeda;
+  --ink:#2a2724; --ink-mute:#57514b; --ink-faint:#857d75;
+  --line:#eae5e0; --bg-soft:#f5f2ef; --bg:#faf8f6; --panel:#fff;
+  --pos:#2f8f5b; --neg:#cf4b3c; --warn:#c9820f;
+  --font:Pretendard,-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);height:100vh;
+     overflow:hidden;letter-spacing:-.01em;display:flex;flex-direction:column}
+button,select{font-family:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+
+/* ── 상단 바 ── */
+.topbar{display:flex;align-items:center;gap:16px;padding:11px 18px;background:var(--panel);
+        border-bottom:1px solid var(--line);flex-shrink:0;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:700;white-space:nowrap}
+.brand .mark{width:22px;height:22px;border-radius:7px;background:var(--brand);color:#fff;
+             display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+.brand small{font-weight:500;color:var(--ink-faint);font-size:12.5px}
+.tb-label{font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-right:2px}
+.seg{display:flex;background:var(--bg-soft);border-radius:9px;padding:3px;gap:2px}
+.seg button{padding:6px 11px;border-radius:6px;font-size:12.5px;font-weight:600;
+            color:var(--ink-faint);transition:.13s;white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+.icon-btn{height:34px;padding:0 12px;border-radius:8px;background:var(--bg-soft);display:flex;
+          align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink-mute);transition:.13s}
+.icon-btn:hover{background:var(--line);color:var(--ink)}
+.icon-btn.on{background:var(--brand);color:#fff}
+.spacer{flex:1}
+.dims{font-size:12px;color:var(--ink-faint);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dims b{color:var(--brand-deep);font-weight:700}
+
+/* ── 본체 ── */
+.body{flex:1;display:flex;min-height:0}
+.stage{flex:1;display:flex;flex-direction:column;align-items:center;overflow:auto;
+       padding:24px 20px 40px;background:radial-gradient(circle at 50% 0%,#fff 0%,var(--bg) 70%)}
+.phone-scale{transform-origin:top center}
+.phone{position:relative;background:#17130f;border-radius:44px;padding:11px;
+       box-shadow:0 0 0 2px #d9d2cb,0 22px 50px rgba(42,39,36,.20)}
+.phone .notch{position:absolute;top:17px;left:50%;transform:translateX(-50%);width:108px;height:23px;
+              background:#17130f;border-radius:999px;z-index:3;pointer-events:none}
+.phone.tablet{border-radius:26px;padding:13px}
+.phone.tablet .notch{display:none}
+.screen{position:relative;background:#fff;border-radius:34px;overflow:hidden;
+        display:flex;flex-direction:column}
+.phone.tablet .screen{border-radius:14px}
+/* 상태바 — 실제 폰에서 노치·시계가 차지하는 띠. 없으면 노치가 앱 내용을 덮어
+   실제 기기에서는 생기지 않는 가림이 화면에 나타난다 */
+.statusbar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+           padding:0 30px 0 32px;background:#fff;color:var(--ink);
+           font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.statusbar .ic{display:flex;align-items:center;gap:5px;font-size:11px}
+iframe{display:block;border:0;background:#fff}
+.loading{position:absolute;left:0;right:0;bottom:0;top:44px;display:flex;align-items:center;
+         justify-content:center;background:#fff;color:var(--ink-faint);font-size:13px;z-index:2;
+         flex-direction:column;gap:10px;text-align:center;padding:0 30px;line-height:1.6}
+.loading.hide{display:none}
+.spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--brand);
+      border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ── 우측 패널 ── */
+.side{width:320px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--line);
+      display:flex;flex-direction:column;min-height:0}
+.side h3{font-size:13px;font-weight:700;padding:14px 16px 0}
+.pane{flex:1;overflow-y:auto;padding:12px 16px 16px}
+.hint{font-size:12px;line-height:1.7;color:var(--ink-mute);background:var(--bg-soft);
+      border-radius:9px;padding:11px 13px;margin-bottom:10px}
+.hint b{color:var(--ink)}
+.hint.warn{background:#fdf3e2;color:#7a5a12}
+.hint.bad{background:#fbeae7;color:#8d3125}
+.step{display:flex;gap:9px;font-size:12.5px;line-height:1.65;color:var(--ink-mute);margin-bottom:9px}
+.step .n{flex-shrink:0;width:19px;height:19px;border-radius:50%;background:var(--brand-soft);
+         color:var(--brand-deep);font-size:11px;font-weight:700;display:flex;
+         align-items:center;justify-content:center;margin-top:1px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:7px 0;
+    border-bottom:1px solid var(--line)}
+.kv:last-child{border-bottom:0}
+.kv span{color:var(--ink-faint)}
+.kv b{font-weight:600;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+.dot.ok{background:var(--pos)} .dot.no{background:var(--neg)} .dot.wait{background:var(--ink-faint)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark">M</span>모바일 뷰어 <small>모션브릿지 직원용 앱</small></div>
+
+  <span class="tb-label">기기</span>
+  <div class="seg" id="devseg"></div>
+
+  <span class="tb-label">배율</span>
+  <div class="seg" id="zoomseg"></div>
+
+  <button class="icon-btn" id="reload">↻ 새로고침</button>
+
+  <div class="spacer"></div>
+  <div class="dims">화면 <b id="dimtext">—</b></div>
+</div>
+
+<div class="body">
+  <div class="stage">
+    <div class="phone-scale" id="scaler">
+      <div class="phone" id="phone">
+        <div class="notch" id="notch"></div>
+        <div class="screen" id="screen">
+          <div class="statusbar" id="statusbar">
+            <span id="clock">9:41</span>
+            <span class="ic">● ▲ ■</span>
+          </div>
+          <iframe id="frame" title="모바일 앱 미리보기"></iframe>
+          <div class="loading" id="loading">
+            <div class="spin"></div>
+            <div id="loadtext">앱을 불러오는 중… (첫 실행은 30초쯤 걸립니다)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side">
+    <h3>상태</h3>
+    <div class="pane">
+      <div class="kv"><span><i class="dot wait" id="d-web"></i>앱 서버 (8081)</span><b id="s-web">확인 중</b></div>
+      <div class="kv"><span><i class="dot wait" id="d-api"></i>ERP 서버 (4000)</span><b id="s-api">확인 중</b></div>
+
+      <div id="trouble"></div>
+
+      <h3 style="padding-left:0">쓰는 법</h3>
+      <div class="step"><span class="n">1</span><div>왼쪽 화면은 <b>실제 앱 그대로</b>입니다. 눌러서 로그인하고 돌아다녀 보세요.</div></div>
+      <div class="step"><span class="n">2</span><div>고칠 곳을 찾으면 <b>어느 화면의 무엇인지</b> 알려주세요. 고치면 이 화면이 <b>저절로 갱신</b>됩니다.</div></div>
+      <div class="step"><span class="n">3</span><div>기기 버튼으로 <b>작은 폰(SE)</b>도 확인해 보세요. 글자가 잘리는 곳이 잘 드러납니다.</div></div>
+
+      <div class="hint" style="margin-top:12px">
+        <b>참고</b> — 여기는 PC라 지문·얼굴 잠금과 화면 캡처 방지는 동작하지 않습니다.
+        그 두 가지는 실제 휴대폰에서만 확인할 수 있습니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const APP_URL = 'http://localhost:8081';
+const API_URL = 'http://localhost:4000/api';
+
+const DEVICES = [
+  { id:'se',  name:'iPhone SE', w:375, h:667 },
+  { id:'i14', name:'iPhone 14', w:390, h:844 },
+  { id:'max', name:'Pro Max',   w:430, h:932 },
+  { id:'gal', name:'갤럭시 S',   w:360, h:780 },
+  { id:'pad', name:'iPad mini', w:768, h:1024, tablet:true },
+];
+const ZOOMS = [
+  { id:'fit',  name:'맞춤' },
+  { id:'1',    name:'100%' },
+  { id:'0.85', name:'85%' },
+  { id:'0.7',  name:'70%' },
+];
+const STATUSBAR_H = 44;
+
+const $ = (s) => document.querySelector(s);
+let device = DEVICES[1];
+let zoom = 'fit';
+
+/* ── 기기·배율 버튼 ── */
+$('#devseg').innerHTML = DEVICES.map((d) =>
+  `<button data-id="${d.id}">${d.name}</button>`).join('');
+$('#zoomseg').innerHTML = ZOOMS.map((z) =>
+  `<button data-id="${z.id}">${z.name}</button>`).join('');
+
+$('#devseg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  device = DEVICES.find((d) => d.id === b.dataset.id);
+  apply();
+});
+$('#zoomseg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  zoom = b.dataset.id;
+  apply();
+});
+
+/* ── 크기 적용 ── */
+function apply() {
+  const screenH = device.h;
+  $('#screen').style.width = device.w + 'px';
+  $('#screen').style.height = screenH + 'px';
+  $('#statusbar').style.height = (device.tablet ? 0 : STATUSBAR_H) + 'px';
+  $('#statusbar').style.display = device.tablet ? 'none' : 'flex';
+  $('#frame').style.width = device.w + 'px';
+  $('#frame').style.height = (screenH - (device.tablet ? 0 : STATUSBAR_H)) + 'px';
+  $('#phone').classList.toggle('tablet', !!device.tablet);
+  $('#notch').style.display = device.tablet ? 'none' : 'block';
+
+  let scale = 1;
+  if (zoom === 'fit') {
+    const stage = document.querySelector('.stage');
+    const availH = stage.clientHeight - 70;
+    const availW = stage.clientWidth - 60;
+    scale = Math.min(1, availH / (device.h + 22), availW / (device.w + 22));
+  } else {
+    scale = parseFloat(zoom);
+  }
+  $('#scaler').style.transform = `scale(${scale})`;
+
+  $('#dimtext').textContent = `${device.w} × ${device.h}` + (scale < 0.999 ? ` (${Math.round(scale * 100)}%)` : '');
+
+  for (const b of $('#devseg').children) b.classList.toggle('on', b.dataset.id === device.id);
+  for (const b of $('#zoomseg').children) b.classList.toggle('on', b.dataset.id === zoom);
+}
+window.addEventListener('resize', apply);
+
+/* ── 시계 ── */
+function tick() {
+  const d = new Date();
+  $('#clock').textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+tick(); setInterval(tick, 20000);
+
+/* ── 서버 상태 ── */
+function setDot(id, ok) {
+  const el = $(id);
+  el.className = 'dot ' + (ok === null ? 'wait' : ok ? 'ok' : 'no');
+}
+
+async function ping(url) {
+  try {
+    await fetch(url, { mode: 'no-cors', cache: 'no-store' });
+    return true;   // no-cors는 성공/실패만 구분된다 (내용은 못 읽음)
+  } catch {
+    return false;
+  }
+}
+
+async function checkServers() {
+  const web = await ping(APP_URL);
+  setDot('#d-web', web);
+  $('#s-web').textContent = web ? '실행 중' : '꺼짐';
+
+  const api = await ping(API_URL + '/auth/me');
+  setDot('#d-api', api);
+  $('#s-api').textContent = api ? '실행 중' : '꺼짐';
+
+  let msg = '';
+  if (!web) {
+    msg = `<div class="hint bad"><b>앱 서버가 꺼져 있습니다.</b><br>
+           <b>모바일뷰어_실행.bat</b> 을 다시 실행해 주세요. 검은 창이 켜져 있어야 합니다.</div>`;
+  } else if (!api) {
+    msg = `<div class="hint warn"><b>ERP 서버가 꺼져 있습니다.</b><br>
+           화면은 보이지만 로그인·조회가 되지 않습니다.
+           ea-erp 폴더의 <b>실행.bat</b> 을 먼저 실행해 주세요.</div>`;
+  }
+  $('#trouble').innerHTML = msg;
+  return web;
+}
+
+/* ── 프레임 로딩 ── */
+$('#frame').addEventListener('load', () => $('#loading').classList.add('hide'));
+$('#reload').addEventListener('click', () => {
+  $('#loading').classList.remove('hide');
+  $('#frame').src = APP_URL + '?t=' + Date.now();
+});
+
+apply();
+$('#frame').src = APP_URL;
+
+/* 앱 서버가 아직 준비 중이면 켜질 때까지 기다렸다가 자동으로 다시 시도한다 */
+(async function waitForApp() {
+  for (let i = 0; i < 60; i++) {
+    const up = await checkServers();
+    if (up) break;
+    $('#loadtext').textContent = '앱 서버가 켜지기를 기다리는 중… (' + (i + 1) + ')';
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  $('#frame').src = APP_URL + '?t=' + Date.now();
+  setInterval(checkServers, 10000);
+})();
+</script>
+</body>
+</html>

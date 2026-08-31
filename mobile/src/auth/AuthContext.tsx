@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { storageDelete, storageGet, storageSet } from '../lib/secureStorage';
 import { api, ApiError, setAccessToken, setRefreshHandler } from '../api/client';
 import type { LoginResult, Me, SessionUser } from '../api/types';
 
@@ -47,22 +47,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const persistMe = async (me: Me) => {
     setState({ status: 'signedIn', me });
-    await SecureStore.setItemAsync(K_ME, JSON.stringify(me));
+    await storageSet(K_ME, JSON.stringify(me));
   };
 
   const clearSession = async () => {
     setAccessToken(null);
     setState({ status: 'signedOut' });
     await Promise.all([
-      SecureStore.deleteItemAsync(K_ACCESS),
-      SecureStore.deleteItemAsync(K_REFRESH),
-      SecureStore.deleteItemAsync(K_ME),
+      storageDelete(K_ACCESS),
+      storageDelete(K_REFRESH),
+      storageDelete(K_ME),
     ]);
   };
 
   /** refresh 회전 — 성공 true. 네트워크 문제는 세션을 지우지 않는다(오프라인이 로그아웃이 되면 안 됨) */
   const doRefresh = async (): Promise<boolean> => {
-    const refreshToken = await SecureStore.getItemAsync(K_REFRESH);
+    const refreshToken = await storageGet(K_REFRESH);
     if (!refreshToken) {
       await clearSession();
       return false;
@@ -70,8 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const r = await api.post<LoginResult>('/auth/refresh', { refreshToken });
       setAccessToken(r.accessToken);
-      await SecureStore.setItemAsync(K_ACCESS, r.accessToken);
-      if (r.refreshToken) await SecureStore.setItemAsync(K_REFRESH, r.refreshToken);
+      await storageSet(K_ACCESS, r.accessToken);
+      if (r.refreshToken) await storageSet(K_REFRESH, r.refreshToken);
       return true;
     } catch (e) {
       if (e instanceof ApiError && e.status !== 0) await clearSession(); // 토큰 무효 → 재로그인
@@ -89,9 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       const [access, refresh, meJson] = await Promise.all([
-        SecureStore.getItemAsync(K_ACCESS),
-        SecureStore.getItemAsync(K_REFRESH),
-        SecureStore.getItemAsync(K_ME),
+        storageGet(K_ACCESS),
+        storageGet(K_REFRESH),
+        storageGet(K_ME),
       ]);
       if (!refresh && !access) {
         setState({ status: 'signedOut' });
@@ -121,8 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const device = `${Platform.OS === 'ios' ? 'iOS' : 'Android'} · 모션브릿지 앱`;
     const r = await api.post<LoginResult>('/auth/login', { email, password, device });
     setAccessToken(r.accessToken);
-    await SecureStore.setItemAsync(K_ACCESS, r.accessToken);
-    if (r.refreshToken) await SecureStore.setItemAsync(K_REFRESH, r.refreshToken);
+    await storageSet(K_ACCESS, r.accessToken);
+    if (r.refreshToken) await storageSet(K_REFRESH, r.refreshToken);
     try {
       await persistMe(await api.get<Me>('/auth/me'));
     } catch {
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const refreshToken = await SecureStore.getItemAsync(K_REFRESH);
+    const refreshToken = await storageGet(K_REFRESH);
     if (refreshToken) {
       try {
         await api.post('/auth/logout', { refreshToken }); // 서버 쪽 토큰 폐기 — 실패해도 로컬은 지운다

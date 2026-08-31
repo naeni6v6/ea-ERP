@@ -14,6 +14,8 @@ import { colors } from '../theme';
  * - 15분 미사용 시 잠금 → 생체인증(또는 기기 잠금 수단)으로 해제.
  *   생체인증·기기 잠금이 없는 기기는 잠그지 않는다(해제 수단이 없으므로).
  */
+const isWeb = Platform.OS === 'web';
+
 export function LockGuard({ children }: { children: React.ReactNode }) {
   const { state } = useAuth();
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
@@ -24,6 +26,8 @@ export function LockGuard({ children }: { children: React.ReactNode }) {
   const signedIn = state.status === 'signedIn';
 
   useEffect(() => {
+    // 웹(PC 모바일뷰어)에는 캡처 방지·생체인증이 없다 — 화면 확인용이므로 잠그지 않는다
+    if (isWeb) return;
     if (Platform.OS === 'android') {
       ScreenCapture.preventScreenCaptureAsync().catch(() => {});
     }
@@ -68,7 +72,8 @@ export function LockGuard({ children }: { children: React.ReactNode }) {
   }, []);
 
   const showLock = signedIn && canLock && locked;
-  const showCover = signedIn && appState !== 'active';
+  // 웹에서는 창 포커스가 빠질 때마다 가림막이 떠서 화면 확인을 방해한다
+  const showCover = !isWeb && signedIn && appState !== 'active';
 
   return (
     <View style={{ flex: 1 }}>
