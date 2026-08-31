@@ -15,6 +15,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { ExpenseDetailScreen } from '../screens/ExpenseDetailScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { Spinner } from '../components/ui';
+import { ApprovalBell, LogoTitle } from '../components/HomeHeader';
 import { colors, ft } from '../theme';
 import type { MainTabParamList, RootStackParamList } from './types';
 import { View } from 'react-native';
@@ -60,7 +61,16 @@ function Tabs() {
         tabBarLabelStyle: { ...ft.semibold, fontSize: 11 },
       })}
     >
-      <Tab.Screen name="Home" component={DashboardScreen} options={{ title: '홈', headerTitle: '모션브릿지' }} />
+      <Tab.Screen
+        name="Home"
+        component={DashboardScreen}
+        options={{
+          title: '홈',
+          headerTitle: () => <LogoTitle />,
+          headerTitleAlign: 'left',
+          headerRight: () => <ApprovalBell />,
+        }}
+      />
       <Tab.Screen
         name="Submit"
         component={BulkSubmitScreen}

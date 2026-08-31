@@ -48,7 +48,7 @@ export function DashboardScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <OfflineBanner dataUpdatedAt={dash.dataUpdatedAt || undefined} />
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 32 }}
         refreshControl={
           <RefreshControl
             refreshing={dash.isFetching && !dash.isLoading}
@@ -84,8 +84,11 @@ export function DashboardScreen() {
             <Section title="프로젝트 관리" onMore={() => nav.navigate('Projects')}>
               <View style={s.projRow}>
                 <ProjStat label="전체" value={d.projects.total} />
+                <View style={s.projDivider} />
                 <ProjStat label="진행" value={d.projects.active} color={colors.brandDeep} />
+                <View style={s.projDivider} />
                 <ProjStat label="지연" value={d.projects.delayed} color={d.projects.delayed > 0 ? colors.neg : undefined} />
+                <View style={s.projDivider} />
                 <ProjStat label="위험" value={d.projects.atRisk} color={d.projects.atRisk > 0 ? colors.warn : undefined} />
               </View>
               <View style={s.projListCard}>
@@ -310,6 +313,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   projStat: { flex: 1, alignItems: 'center', gap: 2 },
+  projDivider: { width: 1, backgroundColor: colors.line, marginVertical: 6 },
   projVal: { fontSize: 22, color: colors.ink },
   projListCard: {
     backgroundColor: colors.card,

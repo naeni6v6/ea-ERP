@@ -43,12 +43,13 @@ export const useUnsubmitted = () =>
     queryFn: () => api.get<ExpenseList>('/cards/expenses?status=PENDING,REJECTED&take=200'),
   });
 
-/** 승인 대기 (CEO 승인함) */
+/** 승인 대기 (CEO 승인함·알림 벨) — 웹 알림 벨과 같은 60초 폴링이라 웹에서 승인하면 앱 배지도 따라 준다 */
 export const useSubmitted = (enabled: boolean) =>
   useQuery({
     queryKey: qk.submitted,
     queryFn: () => api.get<ExpenseList>('/cards/expenses?status=SUBMITTED&take=200'),
     enabled,
+    refetchInterval: 60_000,
   });
 
 /** 웹 cards/page.tsx의 DEFAULT_PURPOSES와 동일 — 코드값(CARD_PURPOSE)이 비어 있을 때의 기본 목록 */
