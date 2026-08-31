@@ -97,7 +97,7 @@ export function NoticeBanner({ onBlockChange }: { onBlockChange?: (blocked: bool
     return (
       <button
         onClick={() => openEditor('')}
-        className="mb-5 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line bg-white py-2.5 text-xs text-ink-faint transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+        className="no-print mb-5 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line bg-white py-2.5 text-xs text-ink-faint transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
       >
         <span className="text-[15px] leading-none">+</span> 오늘의 공지 등록
       </button>
@@ -107,7 +107,7 @@ export function NoticeBanner({ onBlockChange }: { onBlockChange?: (blocked: bool
   // 등록/수정 입력 모드 — 같은 카드 안에서 편집
   if (editing) {
     return (
-      <div className="mb-5 overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-r from-[#fff2ee] via-[#fff7f5] to-white p-5 shadow-soft">
+      <div className="no-print mb-5 overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-r from-[#fff2ee] via-[#fff7f5] to-white p-5 shadow-soft">
         <div className="flex items-center gap-2 text-xs font-bold text-red-600">
           <MegaphoneIcon className="h-4 w-4" />
           오늘의 공지
@@ -154,7 +154,7 @@ export function NoticeBanner({ onBlockChange }: { onBlockChange?: (blocked: bool
   // 확인 후 — 톤을 낮춰 조용히 유지하되 내용은 전부 보여준다
   if (!blocked)
     return (
-      <div className="group mb-5 flex items-start gap-3 rounded-2xl border border-red-100/70 bg-red-50/60 px-4 py-3">
+      <div className="no-print group mb-5 flex items-start gap-3 rounded-2xl border border-red-100/70 bg-red-50/60 px-4 py-3">
         <MegaphoneIcon className="mt-1 h-4 w-4 shrink-0 text-red-400" />
         <span className="mt-0.5 shrink-0 text-xs font-bold text-red-500">오늘의 공지</span>
         <p className="min-w-0 flex-1 whitespace-pre-line text-sm font-semibold leading-relaxed text-ink-soft">
@@ -178,7 +178,7 @@ export function NoticeBanner({ onBlockChange }: { onBlockChange?: (blocked: bool
   return (
     <div
       role="alert"
-      className="relative mb-5 overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-r from-[#fff1ec] via-[#fff7f4] to-white p-5 shadow-[0_10px_30px_-18px_rgba(207,75,60,0.55)]"
+      className="no-print relative mb-5 overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-r from-[#fff1ec] via-[#fff7f4] to-white p-5 shadow-[0_10px_30px_-18px_rgba(207,75,60,0.55)]"
     >
       {/* 장식 — 점 격자와 은은한 원 */}
       <span

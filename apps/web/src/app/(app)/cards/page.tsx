@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { big, dateTime, num, thisMonthSeoul } from '@/lib/format';
+import { CardBrandMark } from '@/components/CardBrand';
+import { CardUsage } from '@/components/CardUsage';
 import { MoneyInput } from '@/components/MoneyInput';
 import { Empty, ErrorBox, Field, Modal, Section, Spinner } from '@/components/ui';
 import type { Account, BankAccount, CardExpense, CardExpenseList, CardExpenseStatus, CorporateCard, Project, UserRow } from '@/lib/types';
@@ -214,6 +216,8 @@ export default function CardsPage() {
       </div>
 
       <ExpenseList res={expRes} isCeo={isCeo} isAdmin={isAdmin} cards={cardsRes.data ?? []} search={search} onChanged={reload} />
+
+      {!!cardsRes.data?.length && <CardUsage cards={cardsRes.data} />}
 
       {isCeo && <CardMaster res={cardsRes} onChanged={reload} />}
     </div>
@@ -889,10 +893,15 @@ function CardMaster({
                 {res.data.map((c) => (
                   <tr key={c.id} className={`hover:bg-line-soft/60 ${c.isActive ? '' : 'opacity-50'}`}>
                     <td className="td font-medium">
-                      {c.name}
-                      {c.last4 && !c.name.includes(c.last4) && (
-                        <span className="ml-1.5 font-num text-xs text-ink-faint">…{c.last4}</span>
-                      )}
+                      <span className="flex items-center gap-2.5">
+                        <CardBrandMark issuer={c.issuer} size={28} />
+                        <span className="min-w-0">
+                          <span className="block truncate">{c.name}</span>
+                          {c.last4 && !c.name.includes(c.last4) && (
+                            <span className="block font-num text-xs text-ink-faint">…{c.last4}</span>
+                          )}
+                        </span>
+                      </span>
                     </td>
                     <td className="td text-ink-mute">{c.issuer}</td>
                     <td className="td">

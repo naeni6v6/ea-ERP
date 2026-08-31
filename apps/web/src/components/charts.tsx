@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { big, compact, num, signClass } from '@/lib/format';
 import type { Money } from '@/lib/format';
 
@@ -17,6 +17,30 @@ export const SERIES = {
 const GRID = '#eae5e0'; // 헤어라인 그리드 (line 토큰)
 const BASE = '#a9a099'; // 0 기준선
 const TICK_INK = '#857d75'; // 축 라벨 (ink-mute)
+
+/**
+ * 구성비용 범주 색 — 매출/이익 2색 팔레트와 별개. Apple 시스템 컬러를 빨강→주황→노랑→초록→파랑→보라 순으로 쓴다.
+ * 같은 색을 두 톤으로 나눠 쓴다: 범례의 작은 점은 원색(작아서 채도가 있어야 보인다),
+ * 도넛의 넓은 면은 연한 톤(원색으로 크게 칠하면 화면이 시끄러워진다).
+ */
+export const CATEGORY_COLORS = [
+  '#FF3B30', // systemRed
+  '#FF9500', // systemOrange
+  '#FFCC00', // systemYellow
+  '#34C759', // systemGreen
+  '#007AFF', // systemBlue
+  '#AF52DE', // systemPurple
+];
+/** 위 원색을 흰색과 45% 섞은 톤 — 넓은 면(도넛 조각)용 */
+const CATEGORY_SOFT = ['#FF938D', '#FFC573', '#FFE373', '#8FE0A4', '#73B6FF', '#D3A0ED'];
+const REST_COLOR = '#8E8E93'; // systemGray — '기타'
+const REST_SOFT = '#C1C1C4';
+
+export const categoryColor = (i: number): string =>
+  i < CATEGORY_COLORS.length ? CATEGORY_COLORS[i] : REST_COLOR;
+/** 도넛 조각처럼 넓게 칠할 때 쓰는 연한 톤 */
+export const categorySoftColor = (i: number): string =>
+  i < CATEGORY_SOFT.length ? CATEGORY_SOFT[i] : REST_SOFT;
 
 const toNum = (v: Money): number => Number(big(v));
 
@@ -239,5 +263,110 @@ export function CompareBars({ rows }: { rows: CompareRow[] }) {
         })}
       </div>
     </div>
+  );
+}
+
+export interface DonutSlice {
+  label: string;
+  value: Money;
+}
+
+/**
+ * 구성비 도넛 — 값이 큰 순서로 시계방향, 가운데에 합계를 얹는다.
+ * 조각 사이는 배경색 간격으로 끊어 인접 색이 붙어 보이지 않게 한다.
+ */
+export function DonutChart({
+  slices,
+  centerTop,
+  centerBottom,
+  size = 220,
+}: {
+  slices: DonutSlice[];
+  /** 가운데 큰 글씨 — 보통 합계 */
+  centerTop: string;
+  /** 가운데 작은 글씨 — 보통 일평균 */
+  centerBottom?: string;
+  size?: number;
+}) {
+  // useId()는 ":r0:" 처럼 콜론을 포함해 url(#...) 참조가 깨질 수 있어 영숫자만 남긴다
+  const shadowId = `donut-shadow-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const vals = slices.map((s) => Math.max(0, toNum(s.value)));
+  const total = vals.reduce((a, v) => a + v, 0);
+  const R = 62;
+  const SW = 22;
+  const C = 2 * Math.PI * R;
+  const GAP = total > 0 && vals.filter((v) => v > 0).length > 1 ? 3 : 0;
+
+  let acc = 0;
+  const arcs = vals.map((v, i) => {
+    const frac = total > 0 ? v / total : 0;
+    const len = Math.max(0, frac * C - GAP);
+    const arc = { len, offset: acc, color: categorySoftColor(i), on: v > 0 };
+    acc += frac * C;
+    return arc;
+  });
+
+  /**
+   * 가운데 글자는 링 안쪽(지름 = 2×(R−SW/2) = 102)에 들어가야 한다.
+   * 한글은 약 1em, 숫자·기호는 약 0.55em 폭이므로 글자 수가 아니라 실제 폭으로 크기를 정한다.
+   */
+  const emWidth = (s: string) =>
+    [...s].reduce((w, ch) => w + (/[ᄀ-ᇿ㄰-㆏가-힯]/.test(ch) ? 1 : 0.55), 0);
+  const fitSize = (s: string, max: number, ratio: number) =>
+    Math.min(max, Math.max(9, ((2 * (R - SW / 2)) * ratio) / Math.max(emWidth(s), 0.1)));
+  const topSize = fitSize(centerTop, 20, 0.72);
+  const bottomSize = fitSize(centerBottom ?? '', 10.5, 0.74);
+
+  return (
+    <svg
+      viewBox="0 0 176 176"
+      width={size}
+      height={size}
+      role="img"
+      aria-label={`지출 구성 — 합계 ${centerTop}`}
+      className="shrink-0"
+    >
+      <defs>
+        {/* 링 아래로 떨어지는 부드러운 그림자 — 색 위에 얹지 않고 뒤로만 깔린다 */}
+        <filter id={shadowId} x="-25%" y="-25%" width="150%" height="150%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="3" stdDeviation="3.5" floodColor="#1c1c1e" floodOpacity="0.22" />
+        </filter>
+      </defs>
+      <g transform="translate(88,88) rotate(-90)">
+        <circle r={R} fill="none" stroke="#f2efec" strokeWidth={SW} />
+        <g filter={`url(#${shadowId})`}>
+          {arcs.map(
+            (a, i) =>
+              a.on && (
+                <circle
+                  key={i}
+                  r={R}
+                  fill="none"
+                  stroke={a.color}
+                  strokeWidth={SW}
+                  strokeDasharray={`${a.len} ${C - a.len}`}
+                  strokeDashoffset={-a.offset}
+                />
+              ),
+          )}
+        </g>
+      </g>
+      <text
+        x="88"
+        y={centerBottom ? 86 : 93}
+        textAnchor="middle"
+        className="font-num"
+        fontSize={topSize.toFixed(1)}
+        fontWeight="700"
+        fill="#2a2724"
+      >
+        {centerTop}
+      </text>
+      {centerBottom && (
+        <text x="88" y="102" textAnchor="middle" fontSize={bottomSize.toFixed(1)} fill="#857d75">
+          {centerBottom}
+        </text>
+      )}
+    </svg>
   );
 }

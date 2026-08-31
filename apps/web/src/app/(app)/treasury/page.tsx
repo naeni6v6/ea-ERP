@@ -103,6 +103,8 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
   const today = todaySeoul();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [selected, setSelected] = useState<string | null>(null);
+  /** 더블클릭으로 연 등록 팝업의 대상 날짜 */
+  const [modalDate, setModalDate] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -163,14 +165,16 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
   for (let d = 1; d <= last; d++) cells.push({ key: `${month}-${String(d).padStart(2, '0')}`, day: d });
   for (let nd = 1; cells.length % 7 !== 0; nd++) cells.push({ day: nd, muted: true });
 
-  const addIncome = async () => {
-    if (!selected || !title.trim() || !amount) return;
+  /** 들어올 예정 등록 — 날짜는 인라인 폼(selected)이나 더블클릭 팝업(modalDate)에서 온다 */
+  const addIncome = async (date: string | null, closeModal = false) => {
+    if (!date || !title.trim() || !amount) return;
     setBusy(true);
     setError('');
     try {
-      await api.post('/treasury/planned-incomes', { title: title.trim(), amount, dueDate: selected });
+      await api.post('/treasury/planned-incomes', { title: title.trim(), amount, dueDate: date });
       setTitle('');
       setAmount('');
+      if (closeModal) setModalDate(null);
       reloadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : '등록에 실패했습니다');
@@ -179,11 +183,23 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
     }
   };
 
+  /** 더블클릭 — 그 날짜를 선택하고 등록 팝업을 연다 */
+  const openRegister = (date: string) => {
+    setSelected(date);
+    setTitle('');
+    setAmount('');
+    setError('');
+    setModalDate(date);
+  };
+
   const cancelIncome = async (id: string) => {
     setBusy(true);
+    setError('');
     try {
       await api.patch(`/treasury/planned-incomes/${id}`, { status: 'CANCELLED' });
       reloadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '취소에 실패했습니다');
     } finally {
       setBusy(false);
     }
@@ -196,7 +212,7 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
   return (
     <Section
       title="자금 달력"
-      desc="들어올 돈은 초록, 나갈 돈은 빨강 · 점선은 예정 금액입니다. 날짜를 눌러 입금 예정(잔금일)을 등록하세요."
+      desc="들어올 돈은 초록, 나갈 돈은 빨강 · 점선은 예정 금액입니다. 날짜를 한 번 누르면 상세가 열리고, 더블클릭하면 입금 예정(잔금일) 등록창이 뜹니다."
       right={
         <span className="flex items-center gap-1.5">
           <button className="rounded-md px-2.5 py-1 text-lg leading-none text-ink-mute hover:bg-line-soft" onClick={() => shift(-1)} aria-label="이전 달">
@@ -238,6 +254,8 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
                 key={i}
                 disabled={!c.key}
                 onClick={() => c.key && setSelected(isSel ? null : c.key)}
+                onDoubleClick={() => c.key && openRegister(c.key)}
+                title={c.key ? '더블클릭하면 입금 예정 등록창이 열립니다' : undefined}
                 className={`flex min-h-[108px] flex-col items-stretch gap-1 rounded-lg border-2 p-2 text-left transition-colors ${
                   isSel
                     ? 'border-brand bg-brand-soft shadow-sm'
@@ -358,16 +376,53 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
               </div>
               <button
                 className="btn-primary !py-1.5 text-xs"
-                onClick={addIncome}
+                onClick={() => addIncome(selected)}
                 disabled={busy || !title.trim() || !amount}
               >
                 {busy ? '등록 중…' : '등록'}
               </button>
-              {error && <span className="text-xs text-neg">{error}</span>}
+              {error && !modalDate && <span className="text-xs text-neg">{error}</span>}
             </div>
           </div>
         )}
       </div>
+
+      {/* 날짜 더블클릭 — 입금 예정 등록 팝업 */}
+      <Modal
+        open={!!modalDate}
+        title="입금 예정 등록"
+        desc={modalDate ? `${modalDate.replace(/-/g, '.')} 에 들어올 돈을 등록합니다` : undefined}
+        onClose={() => setModalDate(null)}
+      >
+        <div className="space-y-3">
+          <Field label="내용" required hint="예: 계약 잔금, 정부지원금 2차">
+            <input
+              className="input"
+              autoFocus
+              placeholder="예: 계약 잔금"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={busy}
+            />
+          </Field>
+          <Field label="금액" required>
+            <MoneyInput value={amount} onChange={setAmount} disabled={busy} />
+          </Field>
+          {error && <p className="text-xs text-neg">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button className="btn-ghost" onClick={() => setModalDate(null)} disabled={busy}>
+              취소
+            </button>
+            <button
+              className="btn-primary"
+              onClick={() => addIncome(modalDate, true)}
+              disabled={busy || !title.trim() || !amount}
+            >
+              {busy ? '등록 중…' : '등록'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </Section>
   );
 }

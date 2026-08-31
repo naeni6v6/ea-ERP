@@ -123,4 +123,9 @@
     box-shadow: none !important;
     break-inside: avoid;
   }
+  /* 공지 미확인 상태의 본문 흐림 처리는 화면 전용 — 종이에는 또렷하게 나가야 한다 */
+  main > [aria-hidden='true'] {
+    filter: none !important;
+    opacity: 1 !important;
+  }
 }

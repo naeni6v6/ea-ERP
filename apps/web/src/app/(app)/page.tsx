@@ -10,6 +10,7 @@ import { compact, num, pct, signClass } from '@/lib/format';
 import { fetchMonthlyPnl } from '@/lib/monthly';
 import { BreakdownTable } from '@/components/BreakdownTable';
 import { CompareBars, TrendChart } from '@/components/charts';
+import { ExpenseAnalysis } from '@/components/ExpenseAnalysis';
 import { ProjectBoard, type ProjectBoardHandle } from '@/components/ProjectBoard';
 import { ProjectCreateModal } from '@/components/ProjectModals';
 import { ErrorBox, Kpi, Progress, Section, Spinner } from '@/components/ui';
@@ -203,6 +204,9 @@ export default function DashboardPage() {
           />
         </Section>
       )}
+
+      {/* ── 이번 달 지출 분석 (용도별 도넛, 모든 Role — 권한 범위대로 집계) ── */}
+      <ExpenseAnalysis />
 
       {/* ── 자금 (CEO 전용) ── */}
       {treasury && (
