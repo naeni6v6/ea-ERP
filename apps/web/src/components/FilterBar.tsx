@@ -99,6 +99,10 @@ export function FilterBar() {
         </select>
       </div>
 
+      {/* 필터는 고르는 즉시 반영된다 — [검색]은 같은 조건으로 다시 불러오고 싶을 때 누른다 */}
+      <button className="btn-primary mb-0.5" onClick={f.search}>
+        검색
+      </button>
       {dirty && (
         <button className="btn-ghost mb-0.5" onClick={f.reset}>
           초기화

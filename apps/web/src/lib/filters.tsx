@@ -47,6 +47,9 @@ const STORAGE_KEY = 'ea_erp_filters';
 interface FilterValue extends FilterState {
   set: (patch: Partial<FilterState>) => void;
   reset: () => void;
+  /** [검색] 버튼 — 누를 때마다 올라가는 숫자. 화면이 조회 의존성에 넣으면 강제 재조회된다 */
+  tick: number;
+  search: () => void;
   /** metrics/journal API에 그대로 넘기는 쿼리 객체 */
   query: Record<string, string | undefined>;
 }
@@ -55,6 +58,7 @@ const Ctx = createContext<FilterValue | null>(null);
 
 export function FilterProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FilterState>(DEFAULTS);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     try {
@@ -80,6 +84,8 @@ export function FilterProvider({ children }: { children: ReactNode }) {
       ...state,
       set,
       reset: () => set(DEFAULTS),
+      tick,
+      search: () => setTick((t) => t + 1),
       query: {
         preset: state.preset,
         ...(state.preset === 'custom' ? { from: state.from, to: state.to } : {}),
@@ -88,7 +94,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
         projectId: state.projectId || undefined,
       },
     };
-  }, [state]);
+  }, [state, tick]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

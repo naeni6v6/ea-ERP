@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
+import { useFilters } from '@/lib/filters';
+import { resolveRange } from '@/lib/dateRange';
 import { useAsync } from '@/lib/useAsync';
-import { big, dateTime, num } from '@/lib/format';
+import { big, dateTime, num, sdate } from '@/lib/format';
 import { Empty, ErrorBox, Section, Spinner, StatusBadge } from '@/components/ui';
 import type { BankAccount, BankTransaction } from '@/lib/types';
 
@@ -19,11 +21,15 @@ interface PopbillSyncResult {
 
 export default function AccountExpensesPage() {
   const { isCeo } = useSession();
-  const [direction, setDirection] = useState<'OUT' | 'IN' | ''>('OUT');
+  const [direction, setDirection] = useState<'OUT' | 'IN' | ''>('');
   const [accountId, setAccountId] = useState('');
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncNotice, setSyncNotice] = useState('');
   const [syncError, setSyncError] = useState('');
+
+  // 상단 전역 필터의 기간을 그대로 쓴다 — 고르는 즉시 반영, [검색]은 강제 재조회
+  const filters = useFilters();
+  const range = resolveRange(filters.preset, filters.from, filters.to);
 
   const accounts = useAsync(() => (isCeo ? api.get<BankAccount[]>('/treasury/bank-accounts') : Promise.resolve(null)), [isCeo]);
   const res = useAsync(
@@ -32,10 +38,12 @@ export default function AccountExpensesPage() {
         ? api.get<BankTransaction[]>('/treasury/bank-transactions', {
             direction: direction || undefined,
             bankAccountId: accountId || undefined,
-            take: 200,
+            from: range.from,
+            to: range.to,
+            take: 500,
           })
         : Promise.resolve(null),
-    [isCeo, direction, accountId],
+    [isCeo, direction, accountId, range.from, range.to, filters.tick],
   );
 
   if (!isCeo)
@@ -86,7 +94,10 @@ export default function AccountExpensesPage() {
         <div>
           <h1 className="page-title">계좌 지출</h1>
           <p className="mt-0.5 text-xs text-ink-faint">
-            은행 계좌 입출금 내역 · 최근 {rows.length}건
+            {sdate(range.from)} ~ {sdate(range.to)} · {rows.length}건
+            {(filters.businessTypeId || filters.departmentId) && (
+              <span className="text-warn"> · 사업유형·부서 필터는 은행 원본 내역에는 적용되지 않습니다</span>
+            )}
             {direction !== 'IN' && (
               <span>
                 {' '}
@@ -111,13 +122,13 @@ export default function AccountExpensesPage() {
             ))}
           </select>
           <select
-            className="input w-28"
+            className="input w-36"
             value={direction}
             onChange={(e) => setDirection(e.target.value as 'OUT' | 'IN' | '')}
           >
+            <option value="">입·출금 전체</option>
             <option value="OUT">출금만</option>
             <option value="IN">입금만</option>
-            <option value="">입·출금 전체</option>
           </select>
           <button
             className="btn-primary whitespace-nowrap"
