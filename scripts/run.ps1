@@ -186,17 +186,25 @@ if ((-not (Test-Port 3000)) -and ((-not (Test-Path $webOut)) -or ((Get-NewestWri
 }
 
 # ── 9. API + Web 서버 시작 (프로덕션 모드 — 빠르고 가볍다. 이미 켜져 있으면 건너뜀) ──
+# 창은 /c 로 연다 — 서버가 멈추면 창도 같이 닫힌다.
+# 예전에 쓰던 /k 는 서버가 죽어도 빈 창이 남아서, 껐다 켤 때마다 창이 하나씩 쌓였다.
+function Start-ServerWindow($title, $filter) {
+    $cmd = "title $title & cd /d `"$root`" & pnpm --filter $filter start" +
+           " & echo. & echo [$title 서버가 종료되었습니다. 오류가 보이면 화면을 확인하세요.]" +
+           " & timeout /t 20"
+    Start-Process cmd -ArgumentList '/c', $cmd
+}
 if (Test-Port 4000) {
     Write-Host "      API 서버(4000)가 이미 실행 중입니다."
 } else {
     Write-Host "      API 서버 시작 중... (별도 창, 닫으면 종료)"
-    Start-Process cmd -ArgumentList '/k', "cd /d `"$root`" & pnpm --filter @ea-erp/api start"
+    Start-ServerWindow 'ERP API 4000' '@ea-erp/api'
 }
 if (Test-Port 3000) {
     Write-Host "      웹 서버(3000)가 이미 실행 중입니다."
 } else {
     Write-Host "      웹 서버 시작 중... (별도 창, 닫으면 종료)"
-    Start-Process cmd -ArgumentList '/k', "cd /d `"$root`" & pnpm --filter @ea-erp/web start"
+    Start-ServerWindow 'ERP WEB 3000' '@ea-erp/web'
 }
 $apiOk = Wait-Port 4000 60
 $webOk = Wait-Port 3000 30

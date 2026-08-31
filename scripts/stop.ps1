@@ -14,6 +14,27 @@ foreach ($port in 3000, 4000) {
     }
 }
 
+# 서버를 띄웠던 검은 창 정리 — 예전 /k 방식으로 열려 서버가 죽은 뒤에도 빈 채로
+# 남아 있는 창들을 함께 닫는다. 명령줄이 정확히 서버 실행인 것만 고른다.
+$ghosts = @(Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match '@ea-erp/(api|web)\s+start' })
+foreach ($g in $ghosts) { taskkill /PID $g.ProcessId /T /F 2>$null | Out-Null }
+if ($ghosts.Count -gt 0) { Write-Host "남아 있던 서버 창 $($ghosts.Count)개를 닫았습니다." }
+
+# 모바일 앱 개발 서버(휴대폰 QR 8081 / PC 뷰어 8082)도 함께 정리
+foreach ($port in 8081, 8082) {
+    $conns = netstat -ano | Select-String ":$port\s" | Select-String 'LISTENING'
+    foreach ($line in $conns) {
+        $procId = ($line -split '\s+')[-1]
+        if ($procId -match '^\d+$' -and $procId -ne '0') {
+            taskkill /PID $procId /T /F 2>$null | Out-Null
+        }
+    }
+}
+$expo = @(Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'expo\s+start' })
+foreach ($e in $expo) { taskkill /PID $e.ProcessId /T /F 2>$null | Out-Null }
+
 $pgPortable = Join-Path $env:USERPROFILE 'pgportable'
 $pgCtl = Join-Path $pgPortable 'pgsql\bin\pg_ctl.exe'
 if (Test-Path $pgCtl) {

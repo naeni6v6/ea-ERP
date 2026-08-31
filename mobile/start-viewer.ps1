@@ -43,9 +43,17 @@ if (Test-Port 4000) {
 }
 
 # ── 3. 뷰어 열기 ────────────────────────────────
-# 앱 서버(8081)가 준비되면 뷰어 페이지를 브라우저로 띄운다.
-# 뷰어 자체도 8081에서 서빙되므로 앱과 같은 주소 = 화면 제약이 없다.
-$viewerUrl = 'http://localhost:8081/viewer.html'
+# 휴대폰용(앱실행.bat)은 8081을 쓰므로 뷰어는 8082로 분리한다 — 둘을 동시에 켤 수 있다.
+# 뷰어 페이지도 같은 서버가 서빙하므로 앱과 같은 주소 = 화면 제약이 없다.
+$viewerPort = 8082
+if (Test-Port $viewerPort) {
+    Write-Host "      뷰어 서버가 이미 켜져 있습니다 — 창만 새로 엽니다." -ForegroundColor Yellow
+    Start-Process "http://localhost:$viewerPort/viewer.html"
+    Write-Host ""
+    Read-Host "Enter 키를 누르면 이 창이 닫힙니다 (뷰어는 계속 켜져 있습니다)"
+    exit 0
+}
+$viewerUrl = "http://localhost:$viewerPort/viewer.html"
 Write-Host "[3/3] 뷰어 주소: $viewerUrl"
 Write-Host ""
 Write-Host "----------------------------------------------"
@@ -59,16 +67,16 @@ Write-Host ""
 
 # 서버가 뜨면 브라우저를 여는 작업을 따로 돌린다 (expo는 이 창을 계속 점유한다)
 Start-Job -ScriptBlock {
-    param($url)
+    param($url, $port)
     for ($i = 0; $i -lt 90; $i++) {
         $c = New-Object Net.Sockets.TcpClient
-        try { $c.Connect('127.0.0.1', 8081); $c.Close(); Start-Sleep -Seconds 2; Start-Process $url; return }
+        try { $c.Connect('127.0.0.1', $port); $c.Close(); Start-Sleep -Seconds 2; Start-Process $url; return }
         catch { } finally { $c.Close() }
         Start-Sleep -Seconds 1
     }
-} -ArgumentList $viewerUrl | Out-Null
+} -ArgumentList $viewerUrl, $viewerPort | Out-Null
 
-npx expo start --web
+npx expo start --web --port $viewerPort
 
 Write-Host ""
 Read-Host "Enter 키를 누르면 창이 닫힙니다"

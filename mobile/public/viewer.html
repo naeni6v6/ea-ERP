@@ -131,7 +131,7 @@ iframe{display:block;border:0;background:#fff}
   <div class="side">
     <h3>상태</h3>
     <div class="pane">
-      <div class="kv"><span><i class="dot wait" id="d-web"></i>앱 서버 (8081)</span><b id="s-web">확인 중</b></div>
+      <div class="kv"><span><i class="dot wait" id="d-web"></i>앱 서버 <span id="portlabel"></span></span><b id="s-web">확인 중</b></div>
       <div class="kv"><span><i class="dot wait" id="d-api"></i>ERP 서버 (4000)</span><b id="s-api">확인 중</b></div>
 
       <div id="trouble"></div>
@@ -150,7 +150,9 @@ iframe{display:block;border:0;background:#fff}
 </div>
 
 <script>
-const APP_URL = 'http://localhost:8081';
+/* 뷰어와 앱은 같은 개발 서버(Metro)가 서빙한다 — 포트가 바뀌어도 알아서 따라간다 */
+const APP_URL = location.protocol.startsWith('http') ? location.origin : 'http://localhost:8082';
+const APP_PORT = APP_URL.split(':').pop();
 const API_URL = 'http://localhost:4000/api';
 
 const DEVICES = [
@@ -242,7 +244,7 @@ async function ping(url) {
 }
 
 async function checkServers() {
-  const web = await ping(APP_URL);
+  const web = await ping(APP_URL + '/status');
   setDot('#d-web', web);
   $('#s-web').textContent = web ? '실행 중' : '꺼짐';
 
@@ -270,6 +272,7 @@ $('#reload').addEventListener('click', () => {
   $('#frame').src = APP_URL + '?t=' + Date.now();
 });
 
+$('#portlabel').textContent = `(${APP_PORT})`;
 apply();
 $('#frame').src = APP_URL;
 
@@ -282,7 +285,9 @@ $('#frame').src = APP_URL;
     await new Promise((r) => setTimeout(r, 2000));
   }
   $('#frame').src = APP_URL + '?t=' + Date.now();
-  setInterval(checkServers, 10000);
+  // API는 인증 없이 부르면 401을 주는 게 정상이라, 브라우저 콘솔에 401이 찍힌다.
+  // 오류가 아니라 살아있다는 신호다. 그래도 시끄러우니 주기를 넉넉히 둔다.
+  setInterval(checkServers, 30000);
 })();
 </script>
 </body>

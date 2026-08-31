@@ -10,6 +10,10 @@ function Fail($msg) {
     Read-Host "Enter 키를 누르면 창이 닫힙니다"
     exit 1
 }
+function Test-Port($port) {
+    $c = New-Object Net.Sockets.TcpClient
+    try { $c.Connect('127.0.0.1', $port); return $true } catch { return $false } finally { $c.Close() }
+}
 
 Write-Host "=============================================="
 Write-Host "   모션브릿지 모바일 앱 - 휴대폰 연결(QR)"
@@ -18,6 +22,16 @@ Write-Host ""
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Fail "Node.js가 설치되어 있지 않습니다. https://nodejs.org 에서 LTS 버전을 설치한 뒤 다시 실행하세요."
+}
+
+# 이미 켜져 있으면 창을 새로 만들지 않는다 — 창이 쌓이는 것을 막고, 포트 충돌도 피한다
+if (Test-Port 8081) {
+    Write-Host "휴대폰용 서버가 이미 켜져 있습니다." -ForegroundColor Yellow
+    Write-Host "먼저 열어둔 검은 창에 QR이 그대로 있으니 그것을 스캔하세요."
+    Write-Host "그 창을 찾을 수 없으면 종료.bat 을 눌러 전부 정리한 뒤 다시 실행하세요."
+    Write-Host ""
+    Read-Host "Enter 키를 누르면 이 창이 닫힙니다"
+    exit 0
 }
 
 # ── 1. 앱 부품(의존성) 확인 ─────────────────────
