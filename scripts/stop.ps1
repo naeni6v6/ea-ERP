@@ -35,6 +35,13 @@ $expo = @(Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction Si
     Where-Object { $_.CommandLine -match 'expo\s+start' })
 foreach ($e in $expo) { taskkill /PID $e.ProcessId /T /F 2>$null | Out-Null }
 
+# 앱실행.bat / 모바일뷰어_실행.bat 이 띄운 창도 닫는다.
+# 서버가 죽으면 이 창들은 "Enter 키를 누르면..." 상태로 남아 화면만 차지한다.
+$launchers = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='cmd.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'start-expo\.ps1|start-viewer\.ps1|앱실행\.bat|모바일뷰어_실행\.bat' })
+foreach ($l in $launchers) { taskkill /PID $l.ProcessId /T /F 2>$null | Out-Null }
+if ($launchers.Count -gt 0) { Write-Host "모바일 앱/뷰어 창 $($launchers.Count)개를 닫았습니다." }
+
 $pgPortable = Join-Path $env:USERPROFILE 'pgportable'
 $pgCtl = Join-Path $pgPortable 'pgsql\bin\pg_ctl.exe'
 if (Test-Path $pgCtl) {
