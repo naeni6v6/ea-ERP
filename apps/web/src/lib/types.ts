@@ -253,6 +253,29 @@ export interface BankAccount {
   balance: string;
   department?: { name: string } | null;
   departmentId: string | null;
+  /** 팝빌 계좌조회 연동 — 둘 다 있어야 동기화 대상 */
+  popbillBankCode: string | null;
+  popbillAccountNumber: string | null;
+  popbillSyncedAt: string | null;
+}
+
+/** 팝빌 연동 설정 상태 */
+export interface PopbillStatus {
+  configured: boolean;
+  isTest: boolean;
+  corpNum: string | null;
+}
+
+/** 계좌 1건 동기화 결과 */
+export interface PopbillSyncResult {
+  bankAccountId: string;
+  alias: string;
+  from?: string;
+  to?: string;
+  total?: number;
+  inserted?: number;
+  skipped?: number;
+  error?: string;
 }
 
 export interface BankTransaction {

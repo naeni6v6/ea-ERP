@@ -218,10 +218,10 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   );
 }
 
-export function Progress({ value }: { value: number }) {
+export function Progress({ value, compact }: { value: number; /** 컬럼이 많은 표에서 막대를 좁게 */ compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-viz-soft">
+    <div className="flex items-center gap-1.5">
+      <div className={`h-1.5 overflow-hidden rounded-full bg-viz-soft ${compact ? 'w-12' : 'w-20'}`}>
         <div
           className={`h-full rounded-full bg-gradient-to-r ${value >= 100 ? 'from-viz-deep to-viz' : 'from-viz to-viz-light'}`}
           style={{ width: `${Math.min(100, Math.max(0, value))}%` }}

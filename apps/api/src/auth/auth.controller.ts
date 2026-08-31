@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Post } from '@nestjs/common';
 import { IsEmail, IsString, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
 import { Public } from '../common/decorators/roles.decorator';
@@ -9,7 +9,7 @@ class ChangePasswordDto { @IsString() currentPassword: string; @IsString() @MinL
 @Controller('auth')
 export class AuthController {
   constructor(private auth: AuthService, private scope: ScopeService) {}
-  @Public() @Post('login') login(@Body() dto: LoginDto) { return this.auth.login(dto.email, dto.password); }
+  @Public() @Post('login') login(@Body() dto: LoginDto, @Ip() ip: string) { return this.auth.login(dto.email, dto.password, ip); }
   @Get('me') async me(@CurrentUser() u: AuthUser) { return { ...u, effectiveScope: await this.scope.resolve(u) }; }
   @Post('change-password') changePassword(@CurrentUser() u: AuthUser, @Body() dto: ChangePasswordDto) {
     return this.auth.changePassword(u.id, dto.currentPassword, dto.newPassword);

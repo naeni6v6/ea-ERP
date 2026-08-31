@@ -66,6 +66,9 @@ export class OrgService {
   }
   /** 권한 전체 교체 (Role × Scope 목록) — 반드시 Audit */
   async setRoleScopes(actor: AuthUser, userId: string, scopes: RoleScopeDto[]) {
+    // 대상 사용자가 내 회사 소속인지 먼저 확인 — UserRoleScope에는 companyId가 없어 여기서 막지 않으면 회사 경계가 뚫린다
+    const target = await this.prisma.user.findFirst({ where: { id: userId, companyId: actor.companyId } });
+    if (!target) throw new NotFoundException('사용자를 찾을 수 없습니다');
     for (const s of scopes) {
       if (s.scopeType === 'DEPARTMENT' && !s.departmentId) throw new BadRequestException('DEPARTMENT scope에는 departmentId가 필요합니다');
       if (s.scopeType === 'PROJECT' && !s.projectId) throw new BadRequestException('PROJECT scope에는 projectId가 필요합니다');

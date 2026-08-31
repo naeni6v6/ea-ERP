@@ -123,7 +123,7 @@ export class ProjectsService {
   // ───── Tasks ─────
   async listTasks(user: AuthUser, projectId: string) {
     await this.scope.assertProject(user, projectId);
-    return this.prisma.task.findMany({ where: { projectId, deletedAt: null }, include: { assignee: { select: { id: true, name: true } } }, orderBy: [{ isDone: 'asc' }, { sortOrder: 'asc' }, { dueDate: 'asc' }] });
+    return this.prisma.task.findMany({ where: { projectId, deletedAt: null, project: { companyId: user.companyId } }, include: { assignee: { select: { id: true, name: true } } }, orderBy: [{ isDone: 'asc' }, { sortOrder: 'asc' }, { dueDate: 'asc' }] });
   }
   /**
    * 내 업무 목록. 대표(CEO)는 scope=all(전 직원) 또는 userId(특정 직원)로 회사 전체를 볼 수 있다.
@@ -148,7 +148,8 @@ export class ProjectsService {
     return t;
   }
   async updateTask(user: AuthUser, taskId: string, d: Partial<TaskDto>) {
-    const t = await this.prisma.task.findFirst({ where: { id: taskId, deletedAt: null } });
+    // 회사 경계 — CEO는 scope가 ALL이라 assertProject만으로는 타 회사 업무를 막지 못한다
+    const t = await this.prisma.task.findFirst({ where: { id: taskId, deletedAt: null, project: { companyId: user.companyId } } });
     if (!t) throw new NotFoundException();
     await this.scope.assertProject(user, t.projectId);
     const data: Prisma.TaskUncheckedUpdateInput = { ...d as any };
@@ -202,7 +203,8 @@ export class ProjectsService {
   }
 
   async removeTask(user: AuthUser, taskId: string) {
-    const t = await this.prisma.task.findFirst({ where: { id: taskId, deletedAt: null } });
+    // 회사 경계 — CEO는 scope가 ALL이라 assertProject만으로는 타 회사 업무를 막지 못한다
+    const t = await this.prisma.task.findFirst({ where: { id: taskId, deletedAt: null, project: { companyId: user.companyId } } });
     if (!t) throw new NotFoundException();
     await this.scope.assertProject(user, t.projectId);
     await this.prisma.task.update({ where: { id: taskId }, data: { deletedAt: new Date() } });

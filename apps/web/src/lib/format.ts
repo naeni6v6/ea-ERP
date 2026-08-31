@@ -77,3 +77,7 @@ export const dateTime = (d: string | null | undefined): string => {
     minute: '2-digit',
   }).format(dt);
 };
+
+/** "2026-08-28" → "26.08.28" — 표·헤더처럼 폭이 아쉬운 곳의 짧은 날짜 */
+export const sdateShort = (d: string | null | undefined): string =>
+  d ? d.slice(2, 10).replace(/-/g, '.') : '';

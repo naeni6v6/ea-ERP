@@ -95,13 +95,10 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {!IS_DEMO && (
-            <p className="mt-4 text-center text-xs leading-relaxed text-ink-faint">
-              초기 계정 ceo@eacompany.kr / changeme123!
-              <br />
-              로그인 후 비밀번호를 변경하세요
-            </p>
-          )}
+          {/* 로그인 화면은 인증 전에 누구나 볼 수 있다 — 계정·비밀번호 안내를 두지 않는다 */}
+          <p className="mt-4 text-center text-xs leading-relaxed text-ink-faint">
+            계정이 필요하면 대표에게 요청하세요
+          </p>
         </div>
       </div>
     </main>

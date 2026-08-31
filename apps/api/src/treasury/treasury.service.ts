@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
@@ -29,6 +30,9 @@ export class TreasuryService {
     const before = await this.prisma.bankAccount.findFirst({ where: { id, companyId: u.companyId } });
     if (!before) throw new NotFoundException();
     const data: Prisma.BankAccountUncheckedUpdateInput = { bankName: d.bankName, alias: d.alias, accountNoMasked: d.accountNoMasked, departmentId: d.departmentId, purpose: d.purpose, isRestricted: d.isRestricted, isActive: d.isActive };
+    // 팝빌 연동 — undefined면 그대로, null이면 연결 해제
+    if (d.popbillBankCode !== undefined) data.popbillBankCode = d.popbillBankCode ? String(d.popbillBankCode).trim() : null;
+    if (d.popbillAccountNumber !== undefined) data.popbillAccountNumber = d.popbillAccountNumber ? String(d.popbillAccountNumber).replace(/\D/g, '') || null : null;
     if (d.openingBalance !== undefined) data.openingBalance = won(d.openingBalance);
     if (d.openingDate) data.openingDate = toDateOnly(d.openingDate);
     const after = await this.prisma.bankAccount.update({ where: { id }, data });
@@ -37,13 +41,33 @@ export class TreasuryService {
   }
 
   // ───── 은행거래 (원본, INSERT ONLY) ─────
+  /**
+   * externalId가 없는 행(수기 붙여넣기)의 중복 판별 키.
+   * 내용이 같은 행은 같은 해시를 갖고, 한 번의 붙여넣기 안에서 반복되면 #0,#1…로 구분한다.
+   * → 같은 내역서를 두 번 붙여넣으면 키가 그대로라 건너뛰고,
+   *   한 내역서 안의 진짜 동일 거래(같은 날 같은 금액 커피 2잔)는 각각 남는다.
+   */
+  private pasteKeyBase(r: { txnAt: string; direction: string; amount: string | number; counterpartyRaw?: string; descriptionRaw?: string }) {
+    const base = [r.txnAt, r.direction, String(won(r.amount)), r.counterpartyRaw ?? '', r.descriptionRaw ?? ''].join('|');
+    return `paste:${createHash('sha1').update(base).digest('hex').slice(0, 16)}`;
+  }
+
   async importRows(u: AuthUser, d: ImportDto) {
     const acc = await this.prisma.bankAccount.findFirst({ where: { id: d.bankAccountId, companyId: u.companyId } });
     if (!acc) throw new NotFoundException('계좌 없음');
     const batchId = `imp_${Date.now()}`;
     let inserted = 0, skipped = 0;
+    // 같은 내용이 반복될 때의 붙여넣기 내 순번
+    const seen = new Map<string, number>();
     for (const r of d.rows) {
-      const data = { bankAccountId: acc.id, txnAt: new Date(r.txnAt), direction: r.direction, amount: won(r.amount), counterpartyRaw: r.counterpartyRaw ?? null, descriptionRaw: r.descriptionRaw ?? null, balanceAfter: r.balanceAfter !== undefined ? won(r.balanceAfter) : null, source: 'IMPORT' as const, importBatchId: batchId, externalId: r.externalId ?? null };
+      let externalId = r.externalId ?? null;
+      if (!externalId) {
+        const k = this.pasteKeyBase(r);
+        const seq = seen.get(k) ?? 0;
+        seen.set(k, seq + 1);
+        externalId = `${k}#${seq}`;
+      }
+      const data = { bankAccountId: acc.id, txnAt: new Date(r.txnAt), direction: r.direction, amount: won(r.amount), counterpartyRaw: r.counterpartyRaw ?? null, descriptionRaw: r.descriptionRaw ?? null, balanceAfter: r.balanceAfter !== undefined ? won(r.balanceAfter) : null, source: 'IMPORT' as const, importBatchId: batchId, externalId };
       if (data.amount <= 0n) throw new BadRequestException('amount는 양수여야 합니다 (방향은 direction으로)');
       try {
         const bt = await this.prisma.bankTransaction.create({ data });
@@ -62,6 +86,9 @@ export class TreasuryService {
     });
   }
   async ignoreTransaction(u: AuthUser, id: string, reason?: string) {
+    // 회사 경계 — BankTransaction에는 companyId가 없어 계좌를 타고 확인해야 한다
+    const txn = await this.prisma.bankTransaction.findFirst({ where: { id, bankAccount: { companyId: u.companyId } } });
+    if (!txn) throw new NotFoundException('거래 없음');
     await this.prisma.bankTxnClassification.update({ where: { bankTransactionId: id }, data: { status: 'IGNORED', classifiedById: u.id, classifiedAt: new Date() } });
     await this.audit.log({ companyId: u.companyId, actorId: u.id, entity: 'BankTransaction', entityId: id, action: 'IGNORE', reason });
     return { ok: true };

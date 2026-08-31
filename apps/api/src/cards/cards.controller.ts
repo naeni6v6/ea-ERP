@@ -4,7 +4,7 @@ import { CardsService } from './cards.service';
 import { GowidService } from './gowid.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthUser, CurrentUser } from '../common/decorators/current-user.decorator';
-import { BulkIdsDto, CardDto, CardExpenseCreateDto, DeriveDto, DimsUpdateDto, MemoDto, PurposeDto, RejectDto } from './cards.dto';
+import { BulkIdsDto, CardDto, CardExpenseCreateDto, DeriveDto, DimsUpdateDto, MemoDto, PurposeDto, RejectDto, UpdateCardDto } from './cards.dto';
 
 /**
  * 법인카드. Role 제한이 없는 엔드포인트는 서비스에서 소지자 기준으로 범위를 좁힌다.
@@ -36,6 +36,6 @@ export class CardsController {
   // 카드 마스터
   @Get() list(@CurrentUser() u: AuthUser) { return this.svc.listCards(u); }
   @Post() @Roles(Role.CEO) create(@CurrentUser() u: AuthUser, @Body() d: CardDto) { return this.svc.createCard(u, d); }
-  @Patch(':id') @Roles(Role.CEO) update(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: Partial<CardDto>) { return this.svc.updateCard(u, id, d); }
+  @Patch(':id') @Roles(Role.CEO) update(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: UpdateCardDto) { return this.svc.updateCard(u, id, d); }
   @Post(':id/derive-from-bank') @Roles(Role.CEO) derive(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: DeriveDto) { return this.svc.deriveFromBank(u, id, d); }
 }

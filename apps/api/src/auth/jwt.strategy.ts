@@ -3,10 +3,11 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { requiredSecret } from '../common/env';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private prisma: PrismaService) {
-    super({ jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), secretOrKey: process.env.JWT_SECRET || 'dev-secret' });
+    super({ jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), secretOrKey: requiredSecret('JWT_SECRET') });
   }
   /** 토큰의 role/scope를 신뢰하지 않고 매 요청 DB에서 재조회 → 권한 변경 즉시 반영 */
   async validate(payload: { sub: string }): Promise<AuthUser> {

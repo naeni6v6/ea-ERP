@@ -29,3 +29,14 @@ export class CreateEntryDto {
 }
 export class AccountDto { @IsString() code: string; @IsString() name: string; @IsEnum(AccountCategory) category: AccountCategory; @IsOptional() @IsEnum(PlSection) plSection?: PlSection; @IsOptional() @IsString() systemKey?: string; @IsOptional() @IsString() parentId?: string; @IsOptional() @IsBoolean() isActive?: boolean; }
 export class PartnerDto { @IsString() name: string; @IsOptional() @IsEnum(PartnerType) type?: PartnerType; @IsOptional() @IsString() bizNo?: string; @IsOptional() @IsString() contact?: string; @IsOptional() @IsString() memo?: string; }
+
+/** 수정용 DTO는 클래스여야 ValidationPipe가 동작한다 (Partial<>는 검증이 건너뛰어짐) */
+export class UpdateAccountDto {
+  @IsOptional() @IsString() code?: string;
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsEnum(AccountCategory) category?: AccountCategory;
+  @IsOptional() @IsEnum(PlSection) plSection?: PlSection;
+  @IsOptional() @IsString() systemKey?: string;
+  @IsOptional() @IsString() parentId?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}

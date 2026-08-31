@@ -91,6 +91,19 @@
   .td-num {
     @apply td text-right font-num;
   }
+  /* 프로젝트 보드 — 컬럼이 많아 좌우 여백을 좁혀 한 화면에 담는다 */
+  .board-table .th,
+  .board-table .td {
+    @apply px-1.5;
+  }
+  .board-table .th:first-child,
+  .board-table .td:first-child {
+    @apply pl-4;
+  }
+  .board-table .th:last-child,
+  .board-table .td:last-child {
+    @apply pr-2.5;
+  }
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-[13px] font-medium;
   }

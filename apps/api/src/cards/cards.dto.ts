@@ -50,3 +50,15 @@ export class DeriveDto {
   @IsOptional() @IsString() from?: string; // YYYY-MM-DD
   @IsOptional() @IsString() to?: string;
 }
+
+/** 수정용 DTO는 클래스여야 ValidationPipe가 동작한다 (Partial<>는 검증이 건너뛰어짐) */
+export class UpdateCardDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() issuer?: string;
+  @IsOptional() @IsEnum(CardType) cardType?: CardType;
+  @IsOptional() @IsString() last4?: string;
+  @IsOptional() @IsString() holderUserId?: string | null;
+  @IsOptional() @IsString() bankAccountId?: string | null;
+  @IsOptional() @IsEnum(CardSource) source?: CardSource;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}

@@ -7,6 +7,7 @@ import { useAsync } from '@/lib/useAsync';
 import { big, compact, dateTime, num, seoulYmd, signClass, todaySeoul } from '@/lib/format';
 import { EntryFormModal } from '@/components/EntryFormModal';
 import { MoneyInput } from '@/components/MoneyInput';
+import { PopbillPanel } from '@/components/PopbillPanel';
 import { Empty, ErrorBox, Field, Kpi, Modal, Section, Spinner, StatusBadge } from '@/components/ui';
 import type {
   BankAccount,
@@ -85,7 +86,12 @@ export default function TreasuryPage() {
         ))}
       </div>
 
-      {tab === 'accounts' && <AccountsTab onChanged={kpiRes.reload} />}
+      {tab === 'accounts' && (
+        <>
+          <AccountsTab onChanged={kpiRes.reload} />
+          <PopbillPanel onChanged={kpiRes.reload} />
+        </>
+      )}
       {tab === 'inbox' && <InboxTab onChanged={kpiRes.reload} />}
       {tab === 'reserves' && <ReservesTab onChanged={kpiRes.reload} />}
       {tab === 'planned' && <PlannedTab onChanged={kpiRes.reload} />}

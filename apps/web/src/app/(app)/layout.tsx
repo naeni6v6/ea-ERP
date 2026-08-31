@@ -231,7 +231,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[184px] flex-col bg-shell lg:flex">
         <div className="px-5 pb-4 pt-5">
           <Link href="/" aria-label="모션브릿지 ERP 홈">
-            <Logo height={24} />
+            <Logo height={38} />
           </Link>
         </div>
 
@@ -364,7 +364,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] animate-fade-up px-4 py-6 sm:px-6">
+        <main className="mx-auto w-full max-w-[1720px] animate-fade-up px-3 py-6 sm:px-5">
           {/* 오늘의 공지 — 본문 최상단 카드. 차단 대상(children) 바깥에 두어 확인 버튼이 살아 있어야 한다 */}
           <NoticeBanner onBlockChange={setNoticeBlocked} />
           <div

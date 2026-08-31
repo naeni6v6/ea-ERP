@@ -444,6 +444,13 @@ model BankAccount {
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
 
+  /// 팝빌 계좌조회 연동 — 기관코드(예: 0004 국민)와 계좌번호(하이픈 없이).
+  /// 둘 다 채워진 계좌만 자동 동기화 대상이 된다.
+  popbillBankCode      String?
+  popbillAccountNumber String?
+  /// 마지막으로 팝빌에서 거래를 받아온 시각 (증분 조회 시작점 판단용)
+  popbillSyncedAt      DateTime?
+
   company      Company           @relation(fields: [companyId], references: [id])
   department   Department?       @relation(fields: [departmentId], references: [id])
   transactions BankTransaction[]

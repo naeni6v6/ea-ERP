@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JournalService } from './journal.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthUser, CurrentUser } from '../common/decorators/current-user.decorator';
-import { AccountDto, CreateEntryDto, ENTRY_TYPES, PartnerDto } from './ledger.dto';
+import { AccountDto, CreateEntryDto, ENTRY_TYPES, PartnerDto, UpdateAccountDto } from './ledger.dto';
 
 @Controller()
 export class LedgerController {
@@ -12,7 +12,7 @@ export class LedgerController {
 
   @Get('accounts') accounts(@CurrentUser() u: AuthUser) { return this.prisma.account.findMany({ where: { companyId: u.companyId }, orderBy: { sortOrder: 'asc' } }); }
   @Post('accounts') @Roles(Role.CEO) createAccount(@CurrentUser() u: AuthUser, @Body() d: AccountDto) { return this.prisma.account.create({ data: { ...d, companyId: u.companyId } }); }
-  @Patch('accounts/:id') @Roles(Role.CEO) updateAccount(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: Partial<AccountDto>) { return this.prisma.account.update({ where: { id, companyId: u.companyId }, data: d }); }
+  @Patch('accounts/:id') @Roles(Role.CEO) updateAccount(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: UpdateAccountDto) { return this.prisma.account.update({ where: { id, companyId: u.companyId }, data: d }); }
 
   @Get('partners') partners(@CurrentUser() u: AuthUser) { return this.prisma.partner.findMany({ where: { companyId: u.companyId, isActive: true }, orderBy: { name: 'asc' } }); }
   @Post('partners') @Roles(Role.CEO, Role.ADMIN) createPartner(@CurrentUser() u: AuthUser, @Body() d: PartnerDto) { return this.prisma.partner.create({ data: { ...d, companyId: u.companyId } }); }

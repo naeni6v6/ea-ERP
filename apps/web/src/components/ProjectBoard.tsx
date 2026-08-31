@@ -4,7 +4,7 @@ import { forwardRef, Fragment, useEffect, useImperativeHandle, useMemo, useRef, 
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
-import { big, num, sdate, signClass, WEEKDAY } from '@/lib/format';
+import { big, num, sdate, sdateShort, signClass, WEEKDAY } from '@/lib/format';
 import { Empty, Progress, Spinner } from '@/components/ui';
 import type { Project, ProjectFinance, Task } from '@/lib/types';
 
@@ -39,7 +39,7 @@ function Tag({ name }: { name: string }) {
   const c = hashTag(name);
   return (
     <span
-      className="inline-flex max-w-[140px] items-center truncate rounded px-1.5 py-0.5 text-xs font-medium"
+      className="inline-flex max-w-[88px] items-center truncate rounded px-1.5 py-0.5 text-xs font-medium"
       style={{ background: c.bg, color: c.fg }}
       title={name}
     >
@@ -200,7 +200,7 @@ function GoalCell({
 
   if (!editable)
     return (
-      <span className="block max-w-[220px] truncate text-sm text-ink-soft" title={value || undefined}>
+      <span className="block max-w-[150px] truncate text-sm text-ink-soft" title={value || undefined}>
         {value || '—'}
       </span>
     );
@@ -214,7 +214,7 @@ function GoalCell({
     return (
       <input
         autoFocus
-        className="input min-w-[170px] !py-1 text-sm"
+        className="input min-w-[130px] !py-1 text-sm"
         value={text}
         placeholder="목표 입력 후 Enter"
         onChange={(e) => setText(e.target.value)}
@@ -241,7 +241,7 @@ function GoalCell({
         setText(value);
         setEditing(true);
       }}
-      className="group flex max-w-[240px] items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm text-ink-soft transition-colors hover:bg-line-soft"
+      className="group flex max-w-[108px] items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm text-ink-soft transition-colors hover:bg-line-soft"
       title="클릭해서 목표 입력·수정 — [저장]을 눌러야 확정됩니다"
     >
       <span className="truncate">{value || <span className="text-ink-faint">+ 목표 입력</span>}</span>
@@ -386,17 +386,17 @@ export const ProjectBoard = forwardRef<
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full">
+      <table className="board-table w-full">
         <thead className="border-b border-line-soft">
           <tr>
             <th className="th">진행률</th>
-            <th className="th">프로젝트 명칭</th>
+            <th className="th !pl-10">프로젝트 명칭</th>
             <th className="th">담당부서</th>
             <th className="th">담당자</th>
             <th className="th">수주금액</th>
             <th className="th">기간</th>
             <th className="th">프로젝트 목표</th>
-            <th className="th">할 일</th>
+            <th className="th w-px">할 일</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line-soft">
@@ -404,8 +404,8 @@ export const ProjectBoard = forwardRef<
             const fin = finance?.[p.id];
             const open = openId === p.id;
             const taskOpen = taskOpenId === p.id;
-            const start = sdate(p.startDate);
-            const end = sdate(p.planEndDate);
+            const start = sdateShort(p.startDate);
+            const end = sdateShort(p.planEndDate);
             return (
               <Fragment key={p.id}>
                 <tr
@@ -420,7 +420,7 @@ export const ProjectBoard = forwardRef<
                   }
                   onDrop={editable ? (e) => e.preventDefault() : undefined}
                 >
-                  <td className="td w-[150px]">
+                  <td className="td w-[112px]">
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       {editable && (
                         <span
@@ -442,13 +442,13 @@ export const ProjectBoard = forwardRef<
                         title={labelOf('PROJECT_STATUS', p.status)}
                       />
                       {p.totalTasks > 0 ? (
-                        <Progress value={p.progress} />
+                        <Progress value={p.progress} compact />
                       ) : (
                         <span className="text-xs text-ink-faint">—</span>
                       )}
                     </div>
                   </td>
-                  <td className="td min-w-[160px]">
+                  <td className="td min-w-[150px] !pl-10">
                     <Link
                       href={`/projects/${p.id}`}
                       className="font-medium hover:text-brand-deep hover:underline"
@@ -480,7 +480,7 @@ export const ProjectBoard = forwardRef<
                   <td className="td">
                     <GoalCell p={p} draft={drafts[p.id]} editable={editable} onDraft={(v) => setGoalDraft(p, v)} />
                   </td>
-                  <td className="td whitespace-nowrap">
+                  <td className="td w-px whitespace-nowrap">
                     <button
                       onClick={() => setTaskOpenId(taskOpen ? null : p.id)}
                       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${

@@ -14,7 +14,9 @@ export function Logo({ height = 26, className = '' }: { height?: number; classNa
       width={width}
       height={height}
       priority
-      className={`logo-blend h-auto w-auto select-none ${className}`}
+      // h-auto/w-auto는 브라우저가 srcset 후보 크기로 그려 지정 높이와 어긋난다 — 높이를 명시해 고정한다
+      style={{ height, width: 'auto' }}
+      className={`logo-blend select-none ${className}`}
     />
   );
 }

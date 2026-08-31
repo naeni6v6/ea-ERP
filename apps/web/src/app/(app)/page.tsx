@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useFilters } from '@/lib/filters';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
-import { compact, num, pct, signClass } from '@/lib/format';
+import { compact, num, pct, sdateShort, signClass } from '@/lib/format';
 import { fetchMonthlyPnl } from '@/lib/monthly';
 import { BreakdownTable } from '@/components/BreakdownTable';
 import { CompareBars, TrendChart } from '@/components/charts';
@@ -92,7 +92,7 @@ export default function DashboardPage() {
         </span>
         {pnl && (
           <span className="font-num text-xs text-ink-faint">
-            {pnl.range.from} ~ {pnl.range.to}
+            {sdateShort(pnl.range.from)} ~ {sdateShort(pnl.range.to)}
           </span>
         )}
       </div>
