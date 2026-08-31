@@ -4,10 +4,9 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '../components/themed';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { api } from '../api/client';
 import { useInvalidateExpenses, usePurposes } from '../api/queries';
@@ -16,7 +15,7 @@ import { PrimaryButton, StatusChip } from '../components/ui';
 import { useOnline } from '../components/OfflineBanner';
 import { won } from '../lib/money';
 import { kstDateTime } from '../lib/dates';
-import { colors, numFont } from '../theme';
+import { colors, ft, numFont } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
@@ -67,7 +66,7 @@ export function ExpenseDetailScreen({ route, navigation }: Props) {
 
           {e.status === 'REJECTED' && (
             <View style={s.rejectBox}>
-              <Text style={{ color: colors.neg, fontWeight: '700', fontSize: 14 }}>반려 사유</Text>
+              <Text style={{ color: colors.neg, ...ft.bold, fontSize: 14 }}>반려 사유</Text>
               <Text style={{ color: colors.ink, fontSize: 14, marginTop: 2, lineHeight: 20 }}>
                 {e.rejectReason ?? '사유가 입력되지 않았습니다'}
               </Text>
@@ -129,7 +128,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
       <Text style={{ color: colors.inkFaint, fontSize: 14 }}>{label}</Text>
-      <Text style={{ color: colors.ink, fontSize: 14, fontWeight: '600' }}>{value}</Text>
+      <Text style={{ color: colors.ink, fontSize: 14, ...ft.semibold }}>{value}</Text>
     </View>
   );
 }
@@ -144,8 +143,8 @@ const s = StyleSheet.create({
     gap: 8,
     alignItems: 'flex-start',
   },
-  store: { fontSize: 16, color: colors.inkMute, fontWeight: '600' },
-  amount: { fontSize: 32, fontWeight: '800', color: colors.ink },
+  store: { fontSize: 16, color: colors.inkMute, ...ft.semibold },
+  amount: { fontSize: 32, ...ft.extrabold, color: colors.ink },
   rejectBox: {
     backgroundColor: colors.negSoft,
     borderColor: '#f0c4bc',
@@ -161,7 +160,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
   },
-  fieldLabel: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  fieldLabel: { fontSize: 14, ...ft.bold, color: colors.ink },
   memoInput: {
     minHeight: 72,
     borderRadius: 12,

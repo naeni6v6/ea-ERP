@@ -406,8 +406,13 @@ function ExpenseList({
               </button>
             )}
             {isCeo && (
-              <button className="btn-ghost" disabled={busyId === 'sync'} onClick={syncNow} title="고위드에서 최신 지출을 즉시 가져옵니다">
-                {busyId === 'sync' ? '동기화 중…' : '⟳ 동기화'}
+              <button
+                className="btn-primary"
+                disabled={busyId === 'sync'}
+                onClick={syncNow}
+                title="고위드에서 최신 지출을 즉시 가져옵니다 (평소에도 1분마다 자동 수집됩니다)"
+              >
+                {busyId === 'sync' ? '불러오는 중…' : '⟳ 불러오기'}
               </button>
             )}
             <button className="btn-ghost" onClick={() => setAddOpen(true)}>

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '../components/themed';
 import { useAuth } from '../auth/AuthContext';
 import { PrimaryButton } from '../components/ui';
-import { colors } from '../theme';
+import { colors, ft } from '../theme';
 
 /** 로그인 — 이메일/비밀번호만. 계정·비밀번호 예시는 절대 표시하지 않는다. */
 export function LoginScreen() {
@@ -41,11 +41,15 @@ export function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={s.logoWrap}>
-          <View style={s.logoMark}>
-            <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>M</Text>
+          {/* 웹과 같은 로고 — 흰 글자가 있어 어두운 shell 면 위에 얹는다 (웹 헤더와 동일) */}
+          <View style={s.logoShell}>
+            <Image
+              source={require('../../assets/motionbridge-logo.png')}
+              style={s.logoImg}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={s.title}>모션브릿지</Text>
-          <Text style={s.subtitle}>법인카드 지출 관리</Text>
+          <Text style={s.subtitle}>모션브릿지 ERP · 직원용</Text>
         </View>
 
         <View style={{ gap: 10 }}>
@@ -82,17 +86,15 @@ export function LoginScreen() {
 
 const s = StyleSheet.create({
   container: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 36 },
-  logoWrap: { alignItems: 'center', gap: 8 },
-  logoMark: {
-    width: 64,
-    height: 64,
+  logoWrap: { alignItems: 'center', gap: 12 },
+  logoShell: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.shell,
     borderRadius: 18,
-    backgroundColor: colors.brand,
+    paddingVertical: 26,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
   },
-  title: { fontSize: 24, fontWeight: '800', color: colors.ink },
+  logoImg: { width: 220, height: 80 },
   subtitle: { fontSize: 14, color: colors.inkFaint },
   input: {
     minHeight: 52,

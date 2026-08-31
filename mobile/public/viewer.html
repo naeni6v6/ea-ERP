@@ -5,12 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>모션브릿지 모바일 뷰어 — PC에서 앱 화면 점검</title>
 <style>
+/* 웹과 같은 서체 — 뷰어도 같은 톤으로 */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2-variations');
+}
 :root{
   --brand:#f5911e; --brand-deep:#b45f05; --brand-soft:#fdeeda;
   --ink:#2a2724; --ink-mute:#57514b; --ink-faint:#857d75;
   --line:#eae5e0; --bg-soft:#f5f2ef; --bg:#faf8f6; --panel:#fff;
   --pos:#2f8f5b; --neg:#cf4b3c; --warn:#c9820f;
-  --font:Pretendard,-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;
+  --font:'Pretendard Variable',Pretendard,-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);height:100vh;
@@ -208,7 +216,8 @@ function apply() {
     const stage = document.querySelector('.stage');
     const availH = stage.clientHeight - 70;
     const availW = stage.clientWidth - 60;
-    scale = Math.min(1, availH / (device.h + 22), availW / (device.w + 22));
+    // 창이 아주 좁아도 음수/0 배율이 되지 않게 하한을 둔다
+    scale = Math.max(0.2, Math.min(1, availH / (device.h + 22), availW / (device.w + 22)));
   } else {
     scale = parseFloat(zoom);
   }

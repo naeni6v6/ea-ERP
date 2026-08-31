@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './themed';
 import NetInfo from '@react-native-community/netinfo';
 import { colors } from '../theme';
 import { clockLabel } from '../lib/dates';

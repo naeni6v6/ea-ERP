@@ -1,6 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import type { CardExpense, CodeValue, CorporateCard, ExpenseList } from './types';
+import type {
+  CardExpense,
+  CodeValue,
+  CorporateCard,
+  Dashboard,
+  ExpenseList,
+  Notice,
+  Project,
+  Task,
+} from './types';
 
 /**
  * 조회 훅 — 목록은 캐시(AsyncStorage 영속)돼 오프라인에서도 마지막 조회 내용을 보여준다.
@@ -12,6 +21,11 @@ export const qk = {
   unsubmitted: ['expenses', 'unsubmitted'] as const,
   submitted: ['expenses', 'submitted'] as const,
   codeValues: ['code-values'] as const,
+  dashboard: ['dashboard'] as const,
+  notice: ['notice'] as const,
+  projects: ['projects'] as const,
+  project: (id: string) => ['projects', id] as const,
+  tasks: (id: string) => ['projects', id, 'tasks'] as const,
 };
 
 /** EXCLUDED·취소 건은 사용자에게 보여주지 않는다 */
@@ -47,6 +61,34 @@ export const usePurposes = () => {
   const q = useQuery({ queryKey: qk.codeValues, queryFn: () => api.get<CodeValue[]>('/code-values') });
   const fromCodes = (q.data ?? []).filter((c) => c.kind === 'CARD_PURPOSE').map((c) => c.label);
   return { ...q, purposes: fromCodes.length ? fromCodes : DEFAULT_PURPOSES };
+};
+
+/**
+ * 대시보드 — 이 한 번의 호출로 권한별 화면이 결정된다 (웹과 동일 패턴).
+ * 응답에 pnl 키가 있으면 CEO/ADMIN, treasury 키가 있으면 CEO. 없으면 렌더하지 않는다.
+ */
+export const useDashboard = () =>
+  useQuery({ queryKey: qk.dashboard, queryFn: () => api.get<Dashboard>('/metrics/dashboard') });
+
+/** 오늘의 공지 — 없으면 null */
+export const useNotice = () =>
+  useQuery({ queryKey: qk.notice, queryFn: () => api.get<Notice | null>('/notices/today') });
+
+/** 프로젝트 목록 — 서버가 내 범위(부서·참여)로 좁혀 준다 */
+export const useProjects = () =>
+  useQuery({ queryKey: qk.projects, queryFn: () => api.get<Project[]>('/projects') });
+
+export const useProject = (id: string) =>
+  useQuery({ queryKey: qk.project(id), queryFn: () => api.get<Project>(`/projects/${id}`) });
+
+export const useTasks = (projectId: string) =>
+  useQuery({ queryKey: qk.tasks(projectId), queryFn: () => api.get<Task[]>(`/projects/${projectId}/tasks`) });
+
+/** 코드값 라벨 — 프로젝트/태스크 상태 표기는 설정의 코드값을 따른다 (웹 labelOf와 동일) */
+export const useCodeLabel = () => {
+  const q = useQuery({ queryKey: qk.codeValues, queryFn: () => api.get<CodeValue[]>('/code-values') });
+  return (kind: string, code: string): string =>
+    (q.data ?? []).find((c) => c.kind === kind && c.code === code)?.label ?? code;
 };
 
 /** 제출·승인 뒤 목록들을 다시 불러온다 */

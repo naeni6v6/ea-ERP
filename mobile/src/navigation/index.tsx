@@ -6,14 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { useUnsubmitted, visibleRows } from '../api/queries';
 import { LoginScreen } from '../screens/LoginScreen';
-import { HomeScreen } from '../screens/HomeScreen';
+import { DashboardScreen } from '../screens/DashboardScreen';
 import { BulkSubmitScreen } from '../screens/BulkSubmitScreen';
+import { ProjectsScreen } from '../screens/ProjectsScreen';
+import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
 import { ApprovalsScreen } from '../screens/ApprovalsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ExpenseDetailScreen } from '../screens/ExpenseDetailScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { Spinner } from '../components/ui';
-import { colors } from '../theme';
+import { colors, ft } from '../theme';
 import type { MainTabParamList, RootStackParamList } from './types';
 import { View } from 'react-native';
 
@@ -33,8 +35,9 @@ const navTheme = {
 };
 
 const TAB_ICON: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> = {
-  Home: 'card-outline',
+  Home: 'home-outline',
   Submit: 'checkmark-done-outline',
+  Projects: 'briefcase-outline',
   Approvals: 'shield-checkmark-outline',
   Profile: 'person-outline',
 };
@@ -50,12 +53,14 @@ function Tabs() {
         tabBarIcon: ({ color, size }) => <Ionicons name={TAB_ICON[route.name]} color={color} size={size} />,
         tabBarActiveTintColor: colors.brandDeep,
         tabBarInactiveTintColor: colors.inkFaint,
-        headerTitleStyle: { fontWeight: '800', color: colors.ink },
+        headerTitleStyle: { ...ft.extrabold, color: colors.ink },
         headerShadowVisible: false,
         tabBarStyle: { borderTopColor: colors.line },
+        // 탭 라벨·배지는 내비게이션이 자체 스타일을 쓰므로 Pretendard를 직접 지정한다
+        tabBarLabelStyle: { ...ft.semibold, fontSize: 11 },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: '홈', headerTitle: '내 카드' }} />
+      <Tab.Screen name="Home" component={DashboardScreen} options={{ title: '홈', headerTitle: '모션브릿지' }} />
       <Tab.Screen
         name="Submit"
         component={BulkSubmitScreen}
@@ -63,9 +68,10 @@ function Tabs() {
           title: '제출',
           headerTitle: '지출 제출',
           tabBarBadge: unsubCount > 0 ? unsubCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.neg, color: '#fff', fontSize: 11 },
+          tabBarBadgeStyle: { ...ft.semibold, backgroundColor: colors.neg, color: '#fff', fontSize: 11 },
         }}
       />
+      <Tab.Screen name="Projects" component={ProjectsScreen} options={{ title: '프로젝트', headerTitle: '프로젝트' }} />
       {isCeo && (
         <Tab.Screen
           name="Approvals"
@@ -93,7 +99,7 @@ export function RootNavigator() {
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
         screenOptions={{
-          headerTitleStyle: { fontWeight: '800', color: colors.ink },
+          headerTitleStyle: { ...ft.extrabold, color: colors.ink },
           headerTintColor: colors.brandDeep,
           headerShadowVisible: false,
           headerBackButtonDisplayMode: 'minimal',
@@ -103,6 +109,11 @@ export function RootNavigator() {
           <>
             <Stack.Screen name="Main" component={Tabs} options={{ headerShown: false }} />
             <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} options={{ title: '지출 상세' }} />
+            <Stack.Screen
+              name="ProjectDetail"
+              component={ProjectDetailScreen}
+              options={({ route }) => ({ title: route.params.name ?? '프로젝트' })}
+            />
             <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: '비밀번호 변경' }} />
           </>
         ) : (

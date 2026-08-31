@@ -5,10 +5,9 @@ import {
   RefreshControl,
   SectionList,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '../components/themed';
 import { api } from '../api/client';
 import { useInvalidateExpenses, useSubmitted, visibleRows } from '../api/queries';
 import type { CardExpense, ConfirmBulkResult } from '../api/types';
@@ -16,7 +15,7 @@ import { OfflineBanner, useOnline } from '../components/OfflineBanner';
 import { Empty, ErrorView, PrimaryButton, Spinner } from '../components/ui';
 import { won } from '../lib/money';
 import { dateLabel, kstTime, kstYmd } from '../lib/dates';
-import { colors, numFont } from '../theme';
+import { colors, ft, numFont } from '../theme';
 
 /** 승인함 (CEO 전용) — 승인 대기 목록에서 건별·일괄 승인과 반려를 처리한다 */
 export function ApprovalsScreen() {
@@ -107,7 +106,7 @@ export function ApprovalsScreen() {
             hitSlop={8}
             style={{ minHeight: 44, justifyContent: 'center' }}
           >
-            <Text style={{ color: colors.inkMute, fontWeight: '600' }}>{allChecked ? '전체 해제' : '전체 선택'}</Text>
+            <Text style={{ color: colors.inkMute, ...ft.semibold }}>{allChecked ? '전체 해제' : '전체 선택'}</Text>
           </Pressable>
           <Text style={{ color: colors.inkFaint, fontSize: 13 }}>승인 대기 {rows.length}건</Text>
         </View>
@@ -217,7 +216,7 @@ function ApprovalRow({
     <View style={s.row}>
       <Pressable onPress={onToggle} style={s.checkboxWrap} hitSlop={8}>
         <View style={[s.checkbox, checked && s.checkboxOn]}>
-          {checked && <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>✓</Text>}
+          {checked && <Text style={{ color: '#fff', fontSize: 13, ...ft.extrabold }}>✓</Text>}
         </View>
       </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -236,10 +235,10 @@ function ApprovalRow({
         </Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
           <Pressable onPress={onConfirm} disabled={disabled} style={[s.miniBtn, s.miniConfirm, disabled && { opacity: 0.5 }]}>
-            <Text style={{ color: colors.pos, fontWeight: '700', fontSize: 14 }}>승인</Text>
+            <Text style={{ color: colors.pos, ...ft.bold, fontSize: 14 }}>승인</Text>
           </Pressable>
           <Pressable onPress={onReject} disabled={disabled} style={[s.miniBtn, s.miniReject, disabled && { opacity: 0.5 }]}>
-            <Text style={{ color: colors.neg, fontWeight: '700', fontSize: 14 }}>반려</Text>
+            <Text style={{ color: colors.neg, ...ft.bold, fontSize: 14 }}>반려</Text>
           </Pressable>
         </View>
       </View>
@@ -261,7 +260,7 @@ function RejectModal({
     <Modal visible={!!expense} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.modalBackdrop}>
         <View style={s.modalCard}>
-          <Text style={{ fontSize: 17, fontWeight: '800', color: colors.ink }}>반려 사유</Text>
+          <Text style={{ fontSize: 17, ...ft.extrabold, color: colors.ink }}>반려 사유</Text>
           {expense && (
             <Text style={{ color: colors.inkMute, fontSize: 14 }}>
               {expense.storeName ?? '가맹점 미상'} · {won(expense.amount)}
@@ -278,7 +277,7 @@ function RejectModal({
           />
           <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
             <Pressable onPress={() => { setReason(''); onClose(); }} style={s.modalGhostBtn}>
-              <Text style={{ color: colors.inkMute, fontWeight: '600' }}>취소</Text>
+              <Text style={{ color: colors.inkMute, ...ft.semibold }}>취소</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -289,7 +288,7 @@ function RejectModal({
               }}
               style={[s.modalGhostBtn, { backgroundColor: colors.neg }]}
             >
-              <Text style={{ color: '#fff', fontWeight: '700' }}>반려하기</Text>
+              <Text style={{ color: '#fff', ...ft.bold }}>반려하기</Text>
             </Pressable>
           </View>
         </View>
@@ -316,7 +315,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  dayHeaderText: { fontSize: 13, fontWeight: '700', color: colors.inkMute },
+  dayHeaderText: { fontSize: 13, ...ft.bold, color: colors.inkMute },
   row: {
     flexDirection: 'row',
     gap: 10,
@@ -338,8 +337,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  store: { flex: 1, fontSize: 15, color: colors.ink, fontWeight: '600' },
-  amount: { fontSize: 15, color: colors.ink, fontWeight: '700' },
+  store: { flex: 1, fontSize: 15, color: colors.ink, ...ft.semibold },
+  amount: { fontSize: 15, color: colors.ink, ...ft.bold },
   meta: { fontSize: 13, color: colors.inkFaint, marginTop: 2 },
   purpose: { fontSize: 14, color: colors.inkMute, marginTop: 4 },
   miniBtn: {

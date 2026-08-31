@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, AppStateStatus, Platform, StyleSheet, Text, View } from 'react-native';
+import { AppState, AppStateStatus, Platform, StyleSheet, View } from 'react-native';
+import { Text } from '../components/themed';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as ScreenCapture from 'expo-screen-capture';
 import { LOCK_AFTER_MS } from '../config';
 import { useAuth } from '../auth/AuthContext';
 import { PrimaryButton } from '../components/ui';
-import { colors } from '../theme';
+import { colors, ft } from '../theme';
 
 /**
  * 회사 밖에서 열리는 화면 보호.
@@ -81,16 +82,16 @@ export function LockGuard({ children }: { children: React.ReactNode }) {
       {showCover && !showLock && (
         <View style={[StyleSheet.absoluteFill, s.cover]}>
           <View style={s.logoMark}>
-            <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>M</Text>
+            <Text style={{ color: '#fff', fontSize: 26, ...ft.extrabold }}>M</Text>
           </View>
         </View>
       )}
       {showLock && (
         <View style={[StyleSheet.absoluteFill, s.cover, { gap: 16, padding: 32 }]}>
           <View style={s.logoMark}>
-            <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>M</Text>
+            <Text style={{ color: '#fff', fontSize: 26, ...ft.extrabold }}>M</Text>
           </View>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: colors.ink }}>화면이 잠겨 있습니다</Text>
+          <Text style={{ fontSize: 17, ...ft.bold, color: colors.ink }}>화면이 잠겨 있습니다</Text>
           <Text style={{ fontSize: 14, color: colors.inkMute, textAlign: 'center' }}>
             한동안 사용하지 않아 잠갔습니다.{'\n'}본인 확인 후 이어서 사용할 수 있습니다.
           </Text>

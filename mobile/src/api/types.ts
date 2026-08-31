@@ -98,3 +98,109 @@ export interface ConfirmBulkResult {
   skipped: number;
   errors: string[];
 }
+
+// ───── 대시보드 (GET /metrics/dashboard — 권한에 따라 pnl/treasury 키가 빠진다) ─────
+
+export interface Pnl {
+  range: { from: string; to: string };
+  sales: string;
+  cogs: string;
+  grossProfit: string;
+  sga: string;
+  operatingProfit: string;
+  netIncome: string;
+  grossMarginPct: number | null;
+  operatingMarginPct: number | null;
+  netMarginPct: number | null;
+}
+
+export interface TreasuryKpi {
+  totalBalance: string;
+  reserveTotal: string;
+  plannedConfirmed: string;
+  availableCash: string;
+  todayIn: string;
+  todayOut: string;
+  todayNet: string;
+  forecast: { d7: string; d30: string; d90: string };
+  accounts: {
+    id: string;
+    alias: string;
+    bankName: string;
+    balance: string;
+    isRestricted: boolean;
+    department: string | null;
+  }[];
+}
+
+export interface ProjectKpiRow {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  planEndDate?: string;
+  totalTasks: number;
+  doneTasks: number;
+  progress: number;
+  isDelayed: boolean;
+  isAtRisk: boolean;
+}
+
+export interface ProjectsKpi {
+  total: number;
+  active: number;
+  delayed: number;
+  atRisk: number;
+  taskCompletionPct: number;
+  projects: ProjectKpiRow[];
+}
+
+export interface Dashboard {
+  generatedAt: string;
+  pnl?: Pnl;
+  treasury?: TreasuryKpi;
+  projects: ProjectsKpi;
+}
+
+export interface Notice {
+  id: string;
+  noticeDate: string;
+  content: string;
+  updatedAt: string;
+}
+
+// ───── 프로젝트 ─────
+
+export interface Project {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  goal: string | null;
+  startDate: string | null;
+  planEndDate: string | null;
+  contractAmount: string;
+  expectedRevenue: string;
+  budgetAmount: string;
+  targetCost: string;
+  targetProfit: string;
+  businessType?: { id: string; name: string };
+  leadDepartment?: { id: string; name: string };
+  owner?: { id: string; name: string } | null;
+  departments?: { departmentId: string; isLead: boolean; department: { id: string; name: string } }[];
+  members?: { userId: string; user: { id: string; name: string } }[];
+  totalTasks: number;
+  doneTasks: number;
+  progress: number;
+  isDelayed: boolean;
+}
+
+export interface Task {
+  id: string;
+  projectId: string;
+  title: string;
+  assignee?: { id: string; name: string } | null;
+  dueDate: string | null;
+  status: string;
+  isDone: boolean;
+}

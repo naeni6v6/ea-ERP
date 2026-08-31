@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text, View } from 'react-native';
-import { colors } from '../theme';
+import { View } from 'react-native';
+import { Text } from './themed';
+import { colors, ft } from '../theme';
 
 /** 발급사별 브랜드 색 — 웹 components/CardBrand.tsx와 동일 규칙 */
 type Brand = { key: string; bg: string; short: string; label: string };
@@ -41,7 +42,7 @@ export function CardBrandMark({ issuer, size = 36 }: { issuer: string | null | u
         justifyContent: 'center',
       }}
     >
-      <Text style={{ color: '#fff', fontWeight: '700', fontSize }}>{b.short}</Text>
+      <Text style={{ color: '#fff', ...ft.bold, fontSize }}>{b.short}</Text>
     </View>
   );
 }

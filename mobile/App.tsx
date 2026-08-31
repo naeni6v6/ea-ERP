@@ -1,5 +1,7 @@
+import './src/lib/applyDefaultFont';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient } from '@tanstack/react-query';
@@ -28,6 +30,14 @@ const queryClient = new QueryClient({
 const persister = createAsyncStoragePersister({ storage: AsyncStorage, key: 'mb.query-cache' });
 
 export default function App() {
+  // 웹과 같은 글꼴 — 로드 전에는 잠깐 빈 화면 (번들 내 파일이라 순간이다)
+  const [fontsLoaded] = useFonts({
+    'Pretendard-Regular': require('./assets/fonts/Pretendard-Regular.otf'),
+    'Pretendard-SemiBold': require('./assets/fonts/Pretendard-SemiBold.otf'),
+    'Pretendard-Bold': require('./assets/fonts/Pretendard-Bold.otf'),
+    'Pretendard-ExtraBold': require('./assets/fonts/Pretendard-ExtraBold.otf'),
+  });
+  if (!fontsLoaded) return null;
   return (
     <SafeAreaProvider>
       <PersistQueryClientProvider

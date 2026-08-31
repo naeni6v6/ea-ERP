@@ -231,7 +231,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[184px] flex-col bg-shell lg:flex">
         <div className="px-5 pb-4 pt-5">
           <Link href="/" aria-label="모션브릿지 ERP 홈">
-            <Logo height={38} />
+            <Logo height={55} />
           </Link>
         </div>
 

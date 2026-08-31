@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
+import { Text } from '../components/themed';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { api } from '../api/client';
@@ -10,7 +11,7 @@ import { PurposeChips } from '../components/PurposeChips';
 import { Empty, ErrorView, PrimaryButton, Spinner } from '../components/ui';
 import { won } from '../lib/money';
 import { dateLabel, kstTime, kstYmd } from '../lib/dates';
-import { colors, numFont } from '../theme';
+import { colors, ft, numFont } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 interface FailedItem {
@@ -91,7 +92,7 @@ export function BulkSubmitScreen() {
 
       {result && (
         <View style={[s.resultBox, result.failed.length ? s.resultBad : s.resultGood]}>
-          <Text style={{ fontWeight: '700', color: result.failed.length ? colors.neg : colors.pos, fontSize: 14 }}>
+          <Text style={{ ...ft.bold, color: result.failed.length ? colors.neg : colors.pos, fontSize: 14 }}>
             {result.ok}건 제출 완료
             {result.failed.length ? ` · ${result.failed.length}건 실패 — 저장되지 않았습니다` : ''}
           </Text>
@@ -195,7 +196,7 @@ function ExpenseRow({
         </View>
         {rejected && (
           <View style={s.rejectBox}>
-            <Text style={{ color: colors.neg, fontSize: 13, fontWeight: '700' }}>
+            <Text style={{ color: colors.neg, fontSize: 13, ...ft.bold }}>
               반려됨{e.rejectReason ? ` · ${e.rejectReason}` : ''}
             </Text>
             <Text style={{ color: colors.inkMute, fontSize: 12, marginTop: 1 }}>
@@ -220,7 +221,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  dayHeaderText: { fontSize: 13, fontWeight: '700', color: colors.inkMute },
+  dayHeaderText: { fontSize: 13, ...ft.bold, color: colors.inkMute },
   row: {
     backgroundColor: '#fff',
     paddingHorizontal: 16,
@@ -230,8 +231,8 @@ const s = StyleSheet.create({
   },
   rowRejected: { backgroundColor: '#fffafa' },
   time: { fontSize: 13, color: colors.inkFaint },
-  store: { flex: 1, fontSize: 15, color: colors.ink, fontWeight: '600' },
-  amount: { fontSize: 15, color: colors.ink, fontWeight: '700' },
+  store: { flex: 1, fontSize: 15, color: colors.ink, ...ft.semibold },
+  amount: { fontSize: 15, color: colors.ink, ...ft.bold },
   rejectBox: {
     marginTop: 6,
     backgroundColor: colors.negSoft,

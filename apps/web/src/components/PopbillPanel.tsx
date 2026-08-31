@@ -136,11 +136,15 @@ export function PopbillPanel({ onChanged }: { onChanged: () => void }) {
       desc="은행 거래내역을 팝빌에서 자동으로 받아옵니다. 같은 기간을 다시 받아도 중복 저장되지 않습니다"
       right={
         <span className="flex items-center gap-2">
-          <button className="btn-ghost !py-1.5 text-xs" onClick={openPopbill} disabled={!st?.configured}>
+          <button
+            className="btn !py-1.5 bg-gradient-to-b from-amber-300 to-amber-400 text-xs font-semibold text-amber-950 shadow-sm hover:from-amber-400 hover:to-amber-500"
+            onClick={openPopbill}
+            disabled={!st?.configured}
+          >
             팝빌에서 계좌 등록 ↗
           </button>
           <button
-            className="btn-primary !py-1.5 text-xs"
+            className="btn-ghost !py-1.5 text-xs"
             onClick={syncAll}
             disabled={busy || !st?.configured || linked.length === 0}
           >

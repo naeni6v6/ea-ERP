@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { colors } from '../theme';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Text } from './themed';
+import { colors, ft } from '../theme';
 
 /** 용도 칩 선택 — 수기 입력 대신 목록에서 고른다. 가로 스크롤(인라인) / 줄바꿈(상세) 두 모드 */
 export function PurposeChips({
@@ -54,5 +55,5 @@ const s = StyleSheet.create({
   },
   chipOn: { borderColor: colors.brand, backgroundColor: colors.brandSoft },
   label: { fontSize: 14, color: colors.inkMute },
-  labelOn: { color: colors.brandDeep, fontWeight: '700' },
+  labelOn: { color: colors.brandDeep, ...ft.bold },
 });

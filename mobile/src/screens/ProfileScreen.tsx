@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/themed';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import { colors } from '../theme';
+import { colors, ft } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 const ROLE_LABEL: Record<string, string> = { CEO: '대표', ADMIN: '관리자', EMPLOYEE: '직원' };
@@ -70,7 +71,7 @@ const s = StyleSheet.create({
     borderColor: colors.line,
     padding: 18,
   },
-  name: { fontSize: 20, fontWeight: '800', color: colors.ink },
+  name: { fontSize: 20, ...ft.extrabold, color: colors.ink },
   meta: { fontSize: 14, color: colors.inkMute, marginTop: 2 },
   tag: {
     backgroundColor: colors.bgSoft,
@@ -78,7 +79,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  tagText: { fontSize: 13, color: colors.inkMute, fontWeight: '600' },
+  tagText: { fontSize: 13, color: colors.inkMute, ...ft.semibold },
   menuRow: {
     minHeight: 52,
     flexDirection: 'row',
@@ -90,5 +91,5 @@ const s = StyleSheet.create({
     borderColor: colors.line,
     paddingHorizontal: 16,
   },
-  menuText: { fontSize: 16, color: colors.ink, fontWeight: '600' },
+  menuText: { fontSize: 16, color: colors.ink, ...ft.semibold },
 });

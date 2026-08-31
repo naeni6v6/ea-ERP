@@ -22,3 +22,20 @@ export const num = (v: Money): string => {
 
 /** 1234567 → "1,234,567원" */
 export const won = (v: Money): string => `${num(v)}원`;
+
+/**
+ * KPI 카드용 축약 — 웹 lib/format.ts의 compact와 동일 규칙.
+ * 1_2340_0000 → "1.2억", 3450_0000 → "3,450만". 표에는 쓰지 않는다(정확값 필요).
+ */
+export const compact = (v: Money): string => {
+  const b = big(v);
+  const neg = b < 0n;
+  const abs = neg ? -b : b;
+  const sign = neg ? '-' : '';
+  if (abs >= 100000000n) {
+    const eok = Number(abs) / 100000000;
+    return `${sign}${eok >= 100 ? num(Math.round(eok)) : eok.toFixed(1)}억`;
+  }
+  if (abs >= 10000n) return `${sign}${num(Math.round(Number(abs) / 10000))}만`;
+  return `${sign}${num(abs)}`;
+};

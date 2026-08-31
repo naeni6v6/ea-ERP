@@ -29,8 +29,11 @@
       "expo-secure-store",
       [
         "expo-local-authentication",
-        { "faceIDPermission": "잠금 해제에 Face ID를 사용합니다." }
-      ]
+        {
+          "faceIDPermission": "잠금 해제에 Face ID를 사용합니다."
+        }
+      ],
+      "expo-font"
     ],
     "extra": {
       "apiBaseProd": "https://erp-api.example.com/api"
