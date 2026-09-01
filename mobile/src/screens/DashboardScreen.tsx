@@ -5,16 +5,18 @@ import { StatusBar } from 'expo-status-bar';
 import { CompositeNavigationProp, useIsFocused, useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCards, useDashboard, useMonthlyPnl, useUnsubmitted, visibleRows } from '../api/queries';
+import { useCards, useDashboard, useMonthlyPnl, useUnsubmitted } from '../api/queries';
 import type { ProjectKpiRow } from '../api/types';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { NoticeBanner } from '../components/NoticeBanner';
 import { Kpi, KpiGrid } from '../components/Kpi';
 import { Progress } from '../components/Progress';
 import { CardSummaryItem } from '../components/CardSummaryItem';
+import { ExpenseAnalysis } from '../components/ExpenseAnalysis';
 import { TrendBars } from '../components/TrendBars';
 import { Empty, ErrorView, Spinner } from '../components/ui';
 import { big, won } from '../lib/money';
+import { todaySeoul } from '../lib/dates';
 import { colors, ft, numFont, sh } from '../theme';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 
@@ -37,7 +39,6 @@ export function DashboardScreen() {
   const unsub = useUnsubmitted();
   // 손익 추이 그래프 — 대시보드 응답에 pnl이 있는 권한(CEO/ADMIN)에서만 조회
   const monthly = useMonthlyPnl(!!dash.data?.pnl);
-  const unsubCount = visibleRows(unsub.data?.rows).length;
 
   const refresh = () => {
     dash.refetch();
@@ -61,19 +62,8 @@ export function DashboardScreen() {
           />
         }
       >
+        {/* 미제출 안내는 헤더 종 배지가 맡는다 — 홈 상단은 공지만 */}
         <NoticeBanner />
-
-        {unsubCount > 0 && (
-          <Pressable style={s.banner} onPress={() => nav.navigate('Submit')}>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.bannerTitle, ft.bold]}>아직 제출하지 않은 지출이 {unsubCount}건 있어요</Text>
-              <Text style={s.bannerSub}>용도를 입력하고 제출해주세요</Text>
-            </View>
-            <View style={s.bannerBtn}>
-              <Text style={[{ color: '#fff', fontSize: 14 }, ft.bold]}>지금 제출하기</Text>
-            </View>
-          </Pressable>
-        )}
 
         {dash.isLoading ? (
           <Spinner />
@@ -155,6 +145,10 @@ export function DashboardScreen() {
               </Section>
             )}
 
+            {/* 이번 달 지출 분석 — 웹 홈의 도넛 카드와 같은 데이터·같은 규칙 */}
+            <Section title={`${Number(todaySeoul().slice(5, 7))}월 지출 분석`}>
+              <ExpenseAnalysis />
+            </Section>
           </>
         ) : null}
 
@@ -252,24 +246,6 @@ function ProjStat({ label, value, color }: { label: string; value: number; color
 }
 
 const s = StyleSheet.create({
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.brandSoft,
-    borderRadius: 16,
-    padding: 14,
-    ...sh.card,
-  },
-  bannerTitle: { color: colors.brandDeep, fontSize: 15, lineHeight: 21 },
-  bannerSub: { color: colors.inkMute, fontSize: 13, marginTop: 2 },
-  bannerBtn: {
-    backgroundColor: colors.brand,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   titleBar: { width: 4, height: 16, borderRadius: 2, backgroundColor: colors.brand },
   sectionTitle: { fontSize: 17, color: colors.ink },

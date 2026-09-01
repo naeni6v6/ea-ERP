@@ -55,6 +55,17 @@ export const thisMonthSeoul = (): { from: string; to: string } => {
   return { from: `${t.slice(0, 7)}-01`, to: t };
 };
 
+/** 'YYYY-MM'에서 offset 개월 이동 — 웹 ExpenseAnalysis의 shiftMonth와 동일 */
+export const shiftMonth = (ym: string, offset: number): string => {
+  const [y, m] = ym.split('-').map(Number);
+  const total = y * 12 + (m - 1) + offset;
+  return `${Math.floor(total / 12)}-${p2((total % 12) + 1)}`;
+};
+
+/** 그 달의 마지막 일자 */
+export const lastDayOf = (ym: string): number =>
+  new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+
 /** 최근 N개월 [라벨, from, to] — 웹 lib/monthly.ts와 동일 규칙. 최신 달이 앞, 이번 달은 오늘까지 */
 export const recentMonths = (n = 6): { short: string; from: string; to: string }[] => {
   const today = todaySeoul();

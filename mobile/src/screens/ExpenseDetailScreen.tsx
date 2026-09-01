@@ -85,7 +85,7 @@ export function ExpenseDetailScreen({ route, navigation }: Props) {
             <Text style={s.fieldLabel}>
               용도 <Text style={{ color: colors.neg }}>*</Text>
             </Text>
-            <PurposeChips options={purposes} value={purpose} onChange={setPurpose} wrap />
+            <PurposeChips options={purposes} value={purpose} onChange={setPurpose} />
           </View>
 
           <View style={{ gap: 8 }}>

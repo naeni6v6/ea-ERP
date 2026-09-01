@@ -126,7 +126,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 13,
     borderRadius: 18,
-    backgroundColor: colors.bgSoft,
+    backgroundColor: colors.fill,
   },
   filterOn: { backgroundColor: colors.ink },
   card: {

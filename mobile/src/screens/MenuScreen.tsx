@@ -20,8 +20,6 @@ const ROLE_LABEL: Record<string, string> = { CEO: '대표', ADMIN: '관리자', 
 interface MenuItem {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  /** 아이콘 타일 색 — 토스처럼 항목마다 옅은 색 배경 */
-  tint: { bg: string; fg: string };
   /** 표시 조건 — 웹 사이드바 show와 동일. 실제 차단은 API가 한다 */
   show?: (s: { isCeo: boolean; isAdmin: boolean }) => boolean;
   go: (nav: Nav) => void;
@@ -29,55 +27,44 @@ interface MenuItem {
 
 interface MenuSection {
   title: string;
+  /** 아이콘 타일 색 — 섹션 하나당 한 색. 항목마다 색이 다르면 눈이 어지럽다 */
+  tint: { bg: string; fg: string };
   items: MenuItem[];
 }
 
-/** 웹 사이드바(NAV)와 같은 구성 — 모바일 화면이 없는 항목은 준비 중 안내로 보낸다 */
+/**
+ * 웹 사이드바(NAV)와 같은 구성 — 모바일 화면이 없는 항목은 준비 중 안내로 보낸다.
+ * 색은 섹션 단위로만 나눈다: 같은 카테고리는 같은 색이라 목록이 조용하게 읽힌다.
+ */
 const SECTIONS: MenuSection[] = [
   {
     title: '메뉴',
+    tint: { bg: colors.brandSoft, fg: colors.brandDeep },
     items: [
-      {
-        icon: 'speedometer-outline',
-        label: '대시보드',
-        tint: { bg: colors.vizSoft, fg: colors.viz },
-        go: (nav) => nav.navigate('Home'),
-      },
-      {
-        icon: 'briefcase-outline',
-        label: '프로젝트',
-        tint: { bg: colors.brandSoft, fg: colors.brandDeep },
-        go: (nav) => nav.navigate('Projects'),
-      },
-      {
-        icon: 'clipboard-outline',
-        label: '내 업무',
-        tint: { bg: colors.posSoft, fg: colors.pos },
-        go: (nav) => nav.navigate('Placeholder', { title: '내 업무' }),
-      },
+      { icon: 'speedometer-outline', label: '대시보드', go: (nav) => nav.navigate('Home') },
+      { icon: 'briefcase-outline', label: '프로젝트', go: (nav) => nav.navigate('Projects') },
+      { icon: 'clipboard-outline', label: '내 업무', go: (nav) => nav.navigate('Placeholder', { title: '내 업무' }) },
     ],
   },
   {
     title: '경영',
+    tint: { bg: colors.posSoft, fg: colors.pos },
     items: [
       {
         icon: 'trending-up-outline',
         label: '손익',
-        tint: { bg: colors.posSoft, fg: colors.pos },
         show: (s) => s.isAdmin,
         go: (nav) => nav.navigate('Placeholder', { title: '손익' }),
       },
       {
         icon: 'swap-horizontal-outline',
         label: '거래',
-        tint: { bg: colors.vizSoft, fg: colors.viz },
         show: (s) => s.isAdmin,
         go: (nav) => nav.navigate('Placeholder', { title: '거래' }),
       },
       {
         icon: 'wallet-outline',
         label: '자금',
-        tint: { bg: colors.warnSoft, fg: colors.warn },
         show: (s) => s.isCeo,
         go: (nav) => nav.navigate('Placeholder', { title: '자금' }),
       },
@@ -85,24 +72,18 @@ const SECTIONS: MenuSection[] = [
   },
   {
     title: '지출',
+    tint: { bg: colors.warnSoft, fg: colors.warn },
     items: [
-      {
-        icon: 'card-outline',
-        label: '카드 지출',
-        tint: { bg: colors.brandSoft, fg: colors.brandDeep },
-        go: (nav) => nav.navigate('Submit', { seg: 'card' }),
-      },
+      { icon: 'card-outline', label: '카드 지출', go: (nav) => nav.navigate('Submit', { seg: 'card' }) },
       {
         icon: 'cash-outline',
         label: '계좌 지출',
-        tint: { bg: colors.posSoft, fg: colors.pos },
         show: (s) => s.isCeo,
         go: (nav) => nav.navigate('Submit', { seg: 'account' }),
       },
       {
         icon: 'shield-checkmark-outline',
         label: '승인함',
-        tint: { bg: colors.negSoft, fg: colors.neg },
         show: (s) => s.isCeo,
         go: (nav) => nav.navigate('Approvals'),
       },
@@ -110,25 +91,23 @@ const SECTIONS: MenuSection[] = [
   },
   {
     title: '분석',
+    tint: { bg: colors.vizSoft, fg: colors.viz },
     items: [
       {
         icon: 'pricetags-outline',
         label: '유형별',
-        tint: { bg: colors.vizSoft, fg: colors.viz },
         show: (s) => s.isAdmin,
         go: (nav) => nav.navigate('Placeholder', { title: '유형별 분석' }),
       },
       {
         icon: 'people-outline',
         label: '사업부서별',
-        tint: { bg: colors.brandSoft, fg: colors.brandDeep },
         show: (s) => s.isAdmin,
         go: (nav) => nav.navigate('Placeholder', { title: '사업부서별 분석' }),
       },
       {
         icon: 'calendar-outline',
         label: '기간별',
-        tint: { bg: colors.warnSoft, fg: colors.warn },
         show: (s) => s.isAdmin,
         go: (nav) => nav.navigate('Placeholder', { title: '기간별 분석' }),
       },
@@ -136,19 +115,10 @@ const SECTIONS: MenuSection[] = [
   },
   {
     title: '설정',
+    tint: { bg: colors.bgSoft, fg: colors.inkMute },
     items: [
-      {
-        icon: 'person-outline',
-        label: '내 정보',
-        tint: { bg: colors.bgSoft, fg: colors.inkMute },
-        go: (nav) => nav.navigate('Profile'),
-      },
-      {
-        icon: 'key-outline',
-        label: '비밀번호 변경',
-        tint: { bg: colors.bgSoft, fg: colors.inkMute },
-        go: (nav) => nav.navigate('ChangePassword'),
-      },
+      { icon: 'person-outline', label: '내 정보', go: (nav) => nav.navigate('Profile') },
+      { icon: 'key-outline', label: '비밀번호 변경', go: (nav) => nav.navigate('ChangePassword') },
     ],
   },
 ];
@@ -196,8 +166,8 @@ export function MenuScreen() {
                 onPress={() => it.go(nav)}
                 style={({ pressed }) => [s.row, i > 0 && s.rowDivider, pressed && { backgroundColor: colors.bgSoft }]}
               >
-                <View style={[s.iconTile, { backgroundColor: it.tint.bg }]}>
-                  <Ionicons name={it.icon} size={19} color={it.tint.fg} />
+                <View style={[s.iconTile, { backgroundColor: sec.tint.bg }]}>
+                  <Ionicons name={it.icon} size={19} color={sec.tint.fg} />
                 </View>
                 <Text style={s.rowLabel}>{it.label}</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />

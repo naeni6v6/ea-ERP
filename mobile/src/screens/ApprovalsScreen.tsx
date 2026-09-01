@@ -1,37 +1,48 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  RefreshControl,
-  SectionList,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Modal, Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text, TextInput } from '../components/themed';
 import { api } from '../api/client';
-import { useInvalidateExpenses, useSubmitted, visibleRows } from '../api/queries';
+import { useInvalidateExpenses, useOpenExpenses, usePurposes, visibleRows } from '../api/queries';
 import type { CardExpense, ConfirmBulkResult } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { OfflineBanner, useOnline } from '../components/OfflineBanner';
+import { PurposePicker } from '../components/PurposeChips';
 import { Empty, ErrorView, PrimaryButton, Spinner } from '../components/ui';
-import { won } from '../lib/money';
+import { num, won } from '../lib/money';
+import { cardMerchantVisual } from '../lib/merchantIcon';
 import { kstTime, kstYmd, shortDateLabel } from '../lib/dates';
 import { colors, ft, numFont, sh } from '../theme';
 
-/** 승인함 (CEO 전용) — 승인 대기 목록에서 건별·일괄 승인과 반려를 처리한다 */
+/**
+ * 승인함 (CEO 전용) — 아직 승인되지 않은 카드 지출을 전부 모아 승인/반려한다.
+ *
+ * 서버 규칙에 맞춘 화면 흐름:
+ * - 승인(confirm)은 **용도가 있어야** 된다. 상태가 미제출이어도 용도만 있으면 바로 승인된다.
+ * - 반려(reject)는 **승인 대기(SUBMITTED)** 건만 가능하다.
+ * 그래서 용도가 없는 건은 이 화면에서 용도를 고르면 저장(=승인 대기 전환) 후 이어서 승인한다.
+ */
 export function ApprovalsScreen() {
-  const q = useSubmitted(true);
+  const { isCeo } = useAuth();
+  const q = useOpenExpenses(isCeo);
+  const { purposes } = usePurposes();
   const invalidate = useInvalidateExpenses();
   const online = useOnline();
 
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [sel, setSel] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [rejecting, setRejecting] = useState<CardExpense | null>(null);
 
   const rows = useMemo(() => visibleRows(q.data?.rows), [q.data]);
-  const selectedIds = rows.filter((r) => checked[r.id]).map((r) => r.id);
-  const allChecked = rows.length > 0 && selectedIds.length === rows.length;
+  /** 지금 승인할 수 있는 건 = 이미 용도가 있거나, 이 화면에서 용도를 고른 건 */
+  const purposeOf = (e: CardExpense) => e.purposeText ?? sel[e.id] ?? null;
+  const ready = (e: CardExpense) => !!purposeOf(e);
+  const selectedIds = rows.filter((r) => checked[r.id] && ready(r)).map((r) => r.id);
+  const checkableCount = rows.filter(ready).length;
+  const allChecked = checkableCount > 0 && selectedIds.length === checkableCount;
 
   const sections = useMemo(() => {
     const byDay = new Map<string, CardExpense[]>();
@@ -61,10 +72,34 @@ export function ApprovalsScreen() {
     }
   };
 
+  /** 용도가 아직 저장되지 않았으면 먼저 저장한다 (저장 = 승인 대기 전환) */
+  const ensurePurpose = async (e: CardExpense) => {
+    if (e.purposeText) return;
+    const picked = sel[e.id];
+    if (!picked) throw new Error('용도를 먼저 선택해주세요');
+    await api.patch(`/cards/expenses/${e.id}/purpose`, { purposeText: picked });
+  };
+
+  const confirmOne = (e: CardExpense) =>
+    run(async () => {
+      await ensurePurpose(e);
+      await api.post(`/cards/expenses/${e.id}/confirm`);
+      setSel((prev) => {
+        const next = { ...prev };
+        delete next[e.id];
+        return next;
+      });
+      setNotice(`${e.storeName ?? '지출'} ${won(e.amount)} 승인 완료`);
+    });
+
   const confirmBulk = () =>
     run(async () => {
+      const targets = rows.filter((r) => selectedIds.includes(r.id));
+      // 용도가 아직 없는 건은 먼저 저장한 뒤 한 번에 승인한다
+      for (const t of targets) await ensurePurpose(t);
       const r = await api.post<ConfirmBulkResult>('/cards/expenses/confirm-bulk', { ids: selectedIds });
       setChecked({});
+      setSel({});
       setNotice(
         `${r.confirmed}건 승인 완료${r.skipped ? ` · ${r.skipped}건 건너뜀` : ''}${
           r.errors.length ? `\n${r.errors.join('\n')}` : ''
@@ -72,17 +107,16 @@ export function ApprovalsScreen() {
       );
     });
 
-  const confirmOne = (e: CardExpense) =>
-    run(async () => {
-      await api.post(`/cards/expenses/${e.id}/confirm`);
-      setNotice(`${e.storeName ?? '지출'} ${won(e.amount)} 승인 완료`);
-    });
-
   const reject = (e: CardExpense, reason: string) =>
     run(async () => {
       await api.post(`/cards/expenses/${e.id}/reject`, { reason });
       setNotice(`${e.storeName ?? '지출'} ${won(e.amount)} 반려 처리`);
     });
+
+  const toggleAll = () => {
+    if (allChecked) return setChecked({});
+    setChecked(Object.fromEntries(rows.filter(ready).map((r) => [r.id, true])));
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -101,14 +135,10 @@ export function ApprovalsScreen() {
 
       {rows.length > 0 && (
         <View style={s.toolbar}>
-          <Pressable
-            onPress={() => setChecked(allChecked ? {} : Object.fromEntries(rows.map((r) => [r.id, true])))}
-            hitSlop={8}
-            style={{ minHeight: 44, justifyContent: 'center' }}
-          >
+          <Pressable onPress={toggleAll} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
             <Text style={{ color: colors.inkMute, ...ft.semibold }}>{allChecked ? '전체 해제' : '전체 선택'}</Text>
           </Pressable>
-          <Text style={{ color: colors.inkFaint, fontSize: 13 }}>승인 대기 {rows.length}건</Text>
+          <Text style={{ color: colors.inkFaint, fontSize: 13 }}>미승인 {rows.length}건</Text>
         </View>
       )}
 
@@ -120,13 +150,13 @@ export function ApprovalsScreen() {
           onRetry={() => q.refetch()}
         />
       ) : !rows.length ? (
-        <Empty>승인 대기 중인 지출이 없습니다</Empty>
+        <Empty>승인할 지출이 없습니다. 모두 처리하셨어요 👍</Empty>
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: selectedIds.length ? 120 : 24 }}
           refreshControl={
             <RefreshControl
               refreshing={q.isFetching && !q.isLoading}
@@ -139,7 +169,12 @@ export function ApprovalsScreen() {
             <ApprovalRow
               expense={item}
               checked={!!checked[item.id]}
-              onToggle={() => setChecked((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+              purpose={purposeOf(item)}
+              purposes={purposes}
+              onToggle={() =>
+                ready(item) && setChecked((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+              }
+              onPick={(p) => setSel((prev) => ({ ...prev, [item.id]: p }))}
               onConfirm={() => confirmOne(item)}
               onReject={() => setRejecting(item)}
               disabled={busy || online === false}
@@ -196,47 +231,96 @@ function Banner({
 function ApprovalRow({
   expense: e,
   checked,
+  purpose,
+  purposes,
   onToggle,
+  onPick,
   onConfirm,
   onReject,
   disabled,
 }: {
   expense: CardExpense;
   checked: boolean;
+  purpose: string | null;
+  purposes: string[];
   onToggle: () => void;
+  onPick: (p: string) => void;
   onConfirm: () => void;
   onReject: () => void;
   disabled: boolean;
 }) {
+  const v = cardMerchantVisual(e.storeName);
+  const needsPurpose = !purpose;
+  const canReject = e.status === 'SUBMITTED'; // 서버가 승인 대기 건만 반려를 허용한다
+  const statusLabel =
+    e.status === 'SUBMITTED' ? '승인 대기' : e.status === 'REJECTED' ? '반려됨' : '미제출';
+  const statusColor =
+    e.status === 'SUBMITTED' ? colors.brandDeep : e.status === 'REJECTED' ? colors.neg : colors.warn;
+
   return (
     <View style={s.row}>
-      <Pressable onPress={onToggle} style={s.checkboxWrap} hitSlop={8}>
-        <View style={[s.checkbox, checked && s.checkboxOn]}>
-          {checked && <Text style={{ color: '#fff', fontSize: 13, ...ft.extrabold }}>✓</Text>}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+        <Pressable onPress={onToggle} hitSlop={8} disabled={needsPurpose}>
+          <View style={[s.checkbox, checked && s.checkboxOn, needsPurpose && { opacity: 0.35 }]}>
+            {checked && <Text style={{ color: '#fff', fontSize: 12, ...ft.extrabold }}>✓</Text>}
+          </View>
+        </Pressable>
+        <View style={[s.iconCircle, { backgroundColor: v.bg }]}>
+          <Ionicons name={v.icon} size={19} color={v.fg} />
         </View>
-      </Pressable>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={s.store} numberOfLines={1}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[s.store, ft.semibold]} numberOfLines={1}>
             {e.storeName ?? '가맹점 미상'}
           </Text>
-          <Text style={[s.amount, numFont]}>{won(e.amount)}</Text>
+          <Text style={s.meta} numberOfLines={1}>
+            {kstTime(e.usedAt)} · {e.card?.holder?.name ?? '소지자 미상'}
+          </Text>
         </View>
-        <Text style={s.meta} numberOfLines={1}>
-          {kstTime(e.usedAt)} · {e.card?.holder?.name ?? '소지자 미상'} · {e.card?.name ?? ''}
+        <View style={{ alignItems: 'flex-end', gap: 2 }}>
+          <Text style={[s.amount, ft.bold, numFont]}>-{num(e.amount)}원</Text>
+          <Text style={[{ fontSize: 12, color: statusColor }, ft.bold]}>{statusLabel}</Text>
+        </View>
+      </View>
+
+      {e.status === 'REJECTED' && !!e.rejectReason && (
+        <Text style={s.rejectNote} numberOfLines={2}>
+          반려 사유 · {e.rejectReason}
         </Text>
+      )}
+
+      {needsPurpose ? (
+        <View style={{ gap: 6 }}>
+          <Text style={s.hint}>승인하려면 용도를 골라주세요</Text>
+          <PurposePicker options={purposes} value={null} onChange={onPick} />
+        </View>
+      ) : e.purposeText ? (
         <Text style={s.purpose} numberOfLines={2}>
-          {e.purposeText ?? '용도 미입력'}
+          용도 · {purpose}
           {e.memo ? ` — ${e.memo}` : ''}
         </Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-          <Pressable onPress={onConfirm} disabled={disabled} style={[s.miniBtn, s.miniConfirm, disabled && { opacity: 0.5 }]}>
-            <Text style={{ color: colors.pos, ...ft.bold, fontSize: 14 }}>승인</Text>
-          </Pressable>
-          <Pressable onPress={onReject} disabled={disabled} style={[s.miniBtn, s.miniReject, disabled && { opacity: 0.5 }]}>
-            <Text style={{ color: colors.neg, ...ft.bold, fontSize: 14 }}>반려</Text>
-          </Pressable>
+      ) : (
+        // 이 화면에서 고른 용도 — 다시 눌러 바꿀 수 있게 선택기를 유지한다
+        <View style={{ gap: 4 }}>
+          <PurposePicker options={purposes} value={purpose} onChange={onPick} />
+          <Text style={s.saveNote}>승인하면 이 용도로 저장됩니다</Text>
         </View>
+      )}
+
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Pressable
+          onPress={onConfirm}
+          disabled={disabled || needsPurpose}
+          style={[s.miniBtn, s.miniConfirm, (disabled || needsPurpose) && { opacity: 0.4 }]}
+        >
+          <Text style={{ color: colors.pos, ...ft.bold, fontSize: 14 }}>승인</Text>
+        </Pressable>
+        <Pressable
+          onPress={onReject}
+          disabled={disabled || !canReject}
+          style={[s.miniBtn, s.miniReject, (disabled || !canReject) && { opacity: 0.4 }]}
+        >
+          <Text style={{ color: colors.neg, ...ft.bold, fontSize: 14 }}>반려</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -272,7 +356,13 @@ function RejectModal({
             autoFocus
           />
           <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
-            <Pressable onPress={() => { setReason(''); onClose(); }} style={s.modalGhostBtn}>
+            <Pressable
+              onPress={() => {
+                setReason('');
+                onClose();
+              }}
+              style={s.modalGhostBtn}
+            >
               <Text style={{ color: colors.inkMute, ...ft.semibold }}>취소</Text>
             </Pressable>
             <Pressable
@@ -311,36 +401,45 @@ const s = StyleSheet.create({
     ...ft.semibold,
   },
   row: {
-    flexDirection: 'row',
-    gap: 10,
     backgroundColor: colors.card,
     borderRadius: 18,
     marginHorizontal: 16,
     marginBottom: 8,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
+    gap: 10,
     ...sh.card,
   },
-  checkboxWrap: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 7,
+    borderRadius: 8,
     borderWidth: 1.5,
     borderColor: colors.line,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  store: { flex: 1, fontSize: 15, color: colors.ink, ...ft.semibold },
-  amount: { fontSize: 15, color: colors.ink, ...ft.bold },
-  meta: { fontSize: 13, color: colors.inkFaint, marginTop: 2 },
-  purpose: { fontSize: 14, color: colors.inkMute, marginTop: 4 },
-  miniBtn: {
-    minHeight: 40,
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+  },
+  store: { fontSize: 15, color: colors.ink },
+  meta: { fontSize: 12.5, color: colors.inkFaint, marginTop: 2 },
+  amount: { fontSize: 15, color: colors.ink },
+  purpose: { fontSize: 13, color: colors.inkMute },
+  hint: { fontSize: 12.5, color: colors.warn, ...ft.semibold },
+  saveNote: { fontSize: 11.5, color: colors.inkFaint },
+  rejectNote: { fontSize: 12.5, color: colors.neg },
+  miniBtn: {
+    flex: 1,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 12,
   },
   miniConfirm: { backgroundColor: colors.posSoft },
@@ -364,7 +463,7 @@ const s = StyleSheet.create({
     bottom: 0,
     padding: 16,
     paddingBottom: 24,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.card,
     ...sh.lift,
   },
   modalBackdrop: {
@@ -393,7 +492,7 @@ const s = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 16,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: colors.bgSoft,
   },
 });

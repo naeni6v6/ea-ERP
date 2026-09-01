@@ -22,7 +22,9 @@ export const qk = {
   cards: ['cards'] as const,
   unsubmitted: ['expenses', 'unsubmitted'] as const,
   allExpenses: ['expenses', 'all'] as const,
+  openExpenses: ['expenses', 'open'] as const,
   bankTxns: ['bank-transactions'] as const,
+  expenseAnalysis: (from: string, to: string) => ['expense-analysis', from, to] as const,
   submitted: ['expenses', 'submitted'] as const,
   codeValues: ['code-values'] as const,
   dashboard: ['dashboard'] as const,
@@ -61,11 +63,44 @@ export const useBankTransactions = (enabled: boolean) =>
     enabled,
   });
 
-/** 승인 대기 (CEO 승인함·알림 벨) — 웹 알림 벨과 같은 60초 폴링이라 웹에서 승인하면 앱 배지도 따라 준다 */
+/**
+ * 지출 분석용 원자료 — 지난달 1일 ~ 오늘. 웹 ExpenseAnalysis와 같은 구간·같은 엔드포인트.
+ * 계좌 출금은 대표에게만 합산된다(그 외에는 403이라 아예 부르지 않는다).
+ */
+export const useExpenseFlows = (from: string, to: string, isCeo: boolean) =>
+  useQuery({
+    queryKey: qk.expenseAnalysis(from, to),
+    queryFn: async () => {
+      const [cards, bank] = await Promise.all([
+        api.get<ExpenseList>(`/cards/expenses?from=${from}&to=${to}&take=1000`),
+        isCeo
+          ? api.get<BankTransaction[]>(
+              `/treasury/bank-transactions?from=${from}&to=${to}&direction=OUT&take=1000`,
+            )
+          : Promise.resolve([] as BankTransaction[]),
+      ]);
+      return { cards: cards.rows, bank };
+    },
+  });
+
+/** 승인 대기 (웹 알림 벨과 같은 데이터) — 60초 폴링이라 웹에서 승인하면 앱도 따라 준다 */
 export const useSubmitted = (enabled: boolean) =>
   useQuery({
     queryKey: qk.submitted,
     queryFn: () => api.get<ExpenseList>('/cards/expenses?status=SUBMITTED&take=200'),
+    enabled,
+    refetchInterval: 60_000,
+  });
+
+/**
+ * 승인함 목록 — 아직 승인되지 않은 모든 건(미제출·승인 대기·반려).
+ * 대표는 용도만 있으면 미제출 건도 바로 승인할 수 있어서(API confirm은 SUBMITTED를 요구하지 않음)
+ * 처리할 것을 한 곳에서 다 본다.
+ */
+export const useOpenExpenses = (enabled: boolean) =>
+  useQuery({
+    queryKey: qk.openExpenses,
+    queryFn: () => api.get<ExpenseList>('/cards/expenses?status=PENDING,SUBMITTED,REJECTED&take=200'),
     enabled,
     refetchInterval: 60_000,
   });
@@ -141,5 +176,6 @@ export const useInvalidateExpenses = () => {
       qc.invalidateQueries({ queryKey: qk.unsubmitted }),
       qc.invalidateQueries({ queryKey: qk.submitted }),
       qc.invalidateQueries({ queryKey: qk.allExpenses }),
+      qc.invalidateQueries({ queryKey: qk.openExpenses }),
     ]);
 };

@@ -2,7 +2,8 @@ import type { TextStyle, ViewStyle } from 'react-native';
 
 /**
  * 웹과 같은 톤 — 따뜻한 중성색 + 주황 브랜드 (docs/모바일앱_개발_프롬프트.md §5).
- * iOS 그룹 리스트처럼 배경을 살짝 깊게 깔고, 카드는 테두리 없이 흰 면+그림자로 띄운다.
+ * 색값은 웹 tailwind.config.ts와 1:1로 맞춘다 (배경 line.page, 면 line.soft, 선 line.DEFAULT).
+ * 카드는 테두리 없이 흰 면 + 그림자로 띄운다.
  */
 export const colors = {
   brand: '#f5911e',
@@ -13,10 +14,14 @@ export const colors = {
   ink: '#2a2724',
   inkMute: '#57514b',
   inkFaint: '#857d75',
-  line: '#e9e3dd',
-  bgSoft: '#ece8e2',
-  /** 페이지 배경 — iOS 설정처럼 카드보다 확실히 깊은 워멀 그레이 */
-  bg: '#f4f1ed',
+  /** 웹 line.DEFAULT */
+  line: '#eae5e0',
+  /** 웹 line.soft — 칩·트랙 등 옅은 면 */
+  bgSoft: '#f5f2ef',
+  /** 칩 트랙처럼 흰 카드 위에서 한 단계 더 구분돼야 하는 면 */
+  fill: '#ece7e1',
+  /** 페이지 배경 — 웹 line.page와 동일 */
+  bg: '#faf8f6',
   card: '#ffffff',
   pos: '#2f8f5b',
   neg: '#cf4b3c',
@@ -81,6 +86,20 @@ export const sh = {
 
 /** 브랜드 그라데이션 — 웹 아바타의 from-brand to-brand-dark와 동일 */
 export const brandGradient = [colors.brand, colors.brandDark] as const;
+
+/**
+ * 구성비(도넛) 범주 색 — 웹 charts.tsx와 동일한 Apple 시스템 컬러 팔레트.
+ * 작은 점(범례)은 원색, 넓은 면(도넛 조각)은 흰색과 45% 섞은 연한 톤.
+ */
+const CATEGORY_COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#AF52DE'];
+const CATEGORY_SOFT = ['#FF938D', '#FFC573', '#FFE373', '#8FE0A4', '#73B6FF', '#D3A0ED'];
+const REST_COLOR = '#8E8E93';
+const REST_SOFT = '#C1C1C4';
+
+export const categoryColor = (i: number): string =>
+  i < CATEGORY_COLORS.length ? CATEGORY_COLORS[i] : REST_COLOR;
+export const categorySoftColor = (i: number): string =>
+  i < CATEGORY_SOFT.length ? CATEGORY_SOFT[i] : REST_SOFT;
 
 /** iOS 카드 공통 꼴 — 테두리 없이 큰 라운드 + soft 그림자 */
 export const card: ViewStyle = {

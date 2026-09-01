@@ -220,34 +220,37 @@ function CardExpensesPage() {
       ) : !rows.length ? (
         <Empty>{filter === 'open' ? '미승인 지출이 없습니다 👍' : '카드 지출 내역이 없습니다'}</Empty>
       ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: selectedCount ? 130 : 32, paddingTop: 2 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={q.isFetching && !q.isLoading}
-              onRefresh={() => q.refetch()}
-              tintColor={colors.brand}
-            />
-          }
-          renderSectionHeader={({ section }) => <Text style={s.dayHeader}>{section.title}</Text>}
-          renderItem={({ item }) => (
-            <CardExpenseRow
-              expense={item}
-              expanded={!!expanded[item.id]}
-              purpose={sel[item.id] ?? null}
-              purposes={purposes}
-              onToggle={() =>
-                editable(item)
-                  ? setExpanded((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
-                  : nav.navigate('ExpenseDetail', { expense: item })
-              }
-              onPick={(p) => setSel((prev) => ({ ...prev, [item.id]: p }))}
-              onOpen={() => nav.navigate('ExpenseDetail', { expense: item })}
-            />
-          )}
-        />
+        <ListSheet>
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ paddingBottom: selectedCount ? 130 : 32 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={q.isFetching && !q.isLoading}
+                onRefresh={() => q.refetch()}
+                tintColor={colors.brand}
+              />
+            }
+            renderSectionHeader={({ section }) => <Text style={s.dayHeader}>{section.title}</Text>}
+            renderItem={({ item, index }) => (
+              <CardExpenseRow
+                expense={item}
+                first={index === 0}
+                expanded={!!expanded[item.id]}
+                purpose={sel[item.id] ?? null}
+                purposes={purposes}
+                onToggle={() =>
+                  editable(item)
+                    ? setExpanded((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+                    : nav.navigate('ExpenseDetail', { expense: item })
+                }
+                onPick={(p) => setSel((prev) => ({ ...prev, [item.id]: p }))}
+                onOpen={() => nav.navigate('ExpenseDetail', { expense: item })}
+              />
+            )}
+          />
+        </ListSheet>
       )}
 
       {selectedCount > 0 && (
@@ -271,6 +274,7 @@ function CardExpensesPage() {
 
 function CardExpenseRow({
   expense: e,
+  first,
   expanded,
   purpose,
   purposes,
@@ -279,6 +283,7 @@ function CardExpenseRow({
   onOpen,
 }: {
   expense: CardExpense;
+  first: boolean;
   expanded: boolean;
   purpose: string | null;
   purposes: string[];
@@ -292,7 +297,10 @@ function CardExpenseRow({
   const v = cardMerchantVisual(e.storeName);
   return (
     <View>
-      <Pressable onPress={onToggle} style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.bgSoft }]}>
+      <Pressable
+        onPress={onToggle}
+        style={({ pressed }) => [s.row, !first && s.rowDivider, pressed && { backgroundColor: colors.bgSoft }]}
+      >
         <View style={[s.iconCircle, { backgroundColor: v.bg }]}>
           <Ionicons name={v.icon} size={20} color={v.fg} />
         </View>
@@ -359,37 +367,39 @@ function AccountExpensesPage() {
       ) : !rows.length ? (
         <Empty>입출금 내역이 없습니다</Empty>
       ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 32, paddingTop: 2 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={q.isFetching && !q.isLoading}
-              onRefresh={() => q.refetch()}
-              tintColor={colors.brand}
+        <>
+          <Text style={s.sumLine}>
+            최근 {rows.length}건 · 출금 <Text style={{ color: colors.ink, ...ft.semibold }}>{won(outSum)}</Text> · 입금{' '}
+            <Text style={{ color: colors.pos, ...ft.semibold }}>{won(inSum)}</Text>
+          </Text>
+          <ListSheet>
+            <SectionList
+              sections={sections}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 32 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={q.isFetching && !q.isLoading}
+                  onRefresh={() => q.refetch()}
+                  tintColor={colors.brand}
+                />
+              }
+              renderSectionHeader={({ section }) => <Text style={s.dayHeader}>{section.title}</Text>}
+              renderItem={({ item, index }) => <BankTxnRow txn={item} first={index === 0} />}
             />
-          }
-          ListHeaderComponent={
-            <Text style={s.sumLine}>
-              최근 {rows.length}건 · 출금 <Text style={{ color: colors.ink, ...ft.semibold }}>{won(outSum)}</Text> · 입금{' '}
-              <Text style={{ color: colors.pos, ...ft.semibold }}>{won(inSum)}</Text>
-            </Text>
-          }
-          renderSectionHeader={({ section }) => <Text style={s.dayHeader}>{section.title}</Text>}
-          renderItem={({ item }) => <BankTxnRow txn={item} />}
-        />
+          </ListSheet>
+        </>
       )}
     </View>
   );
 }
 
-function BankTxnRow({ txn: t }: { txn: BankTransaction }) {
+function BankTxnRow({ txn: t, first }: { txn: BankTransaction; first: boolean }) {
   const isIn = t.direction === 'IN';
   const name = t.counterpartyRaw || t.descriptionRaw || (isIn ? '입금' : '출금');
   const v = bankMerchantVisual(name, t.direction);
   return (
-    <View style={s.row}>
+    <View style={[s.row, !first && s.rowDivider]}>
       <View style={[s.iconCircle, { backgroundColor: v.bg }]}>
         <Ionicons name={v.icon} size={20} color={v.fg} />
       </View>
@@ -412,6 +422,20 @@ function BankTxnRow({ txn: t }: { txn: BankTransaction }) {
 
 // ───────────────────────── 공용 ─────────────────────────
 
+/**
+ * 목록 시트 — 최신 날짜부터 화면 끝까지 흰 면.
+ * 페이지 배경(#faf8f6)에서 흰 면으로 넘어가는 경계가 딱딱하지 않도록
+ * 위 모서리를 크게 굴리고 위쪽으로 그림자를 깔아 시트가 떠오른 것처럼 보이게 한다.
+ * (그림자는 바깥 View, 라운드 클리핑은 안쪽 View — iOS에서 overflow:hidden이 그림자를 잘라내기 때문)
+ */
+function ListSheet({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={s.sheetShadow}>
+      <View style={s.sheetClip}>{children}</View>
+    </View>
+  );
+}
+
 /** 날짜(KST) 그룹 — 최신 날짜가 위 */
 function groupByDay<T>(rows: T[], at: (r: T) => string): { title: string; data: T[] }[] {
   const byDay = new Map<string, T[]>();
@@ -428,9 +452,10 @@ function groupByDay<T>(rows: T[], at: (r: T) => string): { title: string; data: 
 
 const s = StyleSheet.create({
   segWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 },
+  // iOS 세그먼트 — 트랙을 한 단계 진한 면(fill)으로 깔아야 배경 위에서 또렷하다
   segTrack: {
     flexDirection: 'row',
-    backgroundColor: colors.bgSoft,
+    backgroundColor: colors.fill,
     borderRadius: 12,
     padding: 3,
   },
@@ -442,7 +467,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   segBtnOn: { backgroundColor: colors.card, ...sh.card },
-  segText: { fontSize: 14, color: colors.inkFaint },
+  segText: { fontSize: 14, color: colors.inkMute },
 
   filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
   filterChip: {
@@ -450,7 +475,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 14,
     borderRadius: 18,
-    backgroundColor: colors.bgSoft,
+    backgroundColor: colors.fill,
   },
   filterChipOn: { backgroundColor: colors.ink },
 
@@ -462,11 +487,27 @@ const s = StyleSheet.create({
     paddingBottom: 6,
     ...ft.semibold,
   },
+  // 목록 시트 — 직선 경계. 배경에서 흰 면으로 넘어가는 곳만 옅은 그림자로 구분한다
+  sheetShadow: {
+    flex: 1,
+    marginTop: 18,
+    backgroundColor: colors.card,
+    shadowColor: '#2a2724',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -3 },
+    elevation: 3,
+  },
+  sheetClip: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 9,
     minHeight: 62,
   },
@@ -482,14 +523,11 @@ const s = StyleSheet.create({
   rowAmount: { fontSize: 15.5, color: colors.ink },
   rowStatus: { fontSize: 12, color: colors.inkFaint },
 
+  // 펼침 영역은 같은 카드 안에 이어 붙는다 (행과 한 덩어리로 보이게)
   expandBox: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
     gap: 8,
-    ...sh.card,
   },
   rejectBox: {
     backgroundColor: colors.negSoft,
@@ -516,7 +554,8 @@ const s = StyleSheet.create({
     bottom: 0,
     padding: 16,
     paddingBottom: 24,
-    backgroundColor: colors.bg,
+    // 시트가 흰 면이라 풋터도 같은 면으로 이어 붙인다
+    backgroundColor: colors.card,
     ...sh.lift,
   },
 });
