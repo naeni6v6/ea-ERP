@@ -120,6 +120,10 @@ await grab('/cards/expenses');
 await grab('/cards/expenses', { status: 'SUBMITTED', take: 8 });
 await grab('/cards/expenses', { from: `${ymOf(-5)}-01`, to: today, take: 1000 });
 await grab('/cards/expenses', { from: `${thisYm}-01`, to: `${thisYm}-${String(lastDay(thisYm)).padStart(2, '0')}` });
+// 자금 화면의 항목별 한도 — 이번 달 지출이 없으면 지난달로 폴백하므로 지난달 범위도 담는다
+await grab('/cards/expenses', { from: `${ymOf(-1)}-01`, to: `${ymOf(-1)}-${String(lastDay(ymOf(-1))).padStart(2, '0')}` });
+// 자금 탭의 팝빌 패널 상태
+await grab('/treasury/popbill/status');
 await grab('/journal');
 await grab('/journal', { from: '2026-01-01', to: '2026-12-31', take: 500 });
 

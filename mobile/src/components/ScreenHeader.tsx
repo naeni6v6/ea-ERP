@@ -1,14 +1,18 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Text } from './themed';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { colors, ft } from '../theme';
+import type { MainTabParamList } from '../navigation/types';
+import { Text } from './themed';
 
 /** 화면마다 하나씩 — 서로 나란히 놓이지 않으므로 각 화면의 성격에 맞는 톤을 쓴다 */
 export const HEADER_TINT = {
   brand: { bg: colors.brandSoft, fg: colors.brandDeep },
   viz: { bg: colors.vizSoft, fg: colors.viz },
   pos: { bg: colors.posSoft, fg: colors.pos },
+  warn: { bg: colors.warnSoft, fg: colors.warn },
   neutral: { bg: colors.bgSoft, fg: colors.inkMute },
 } as const;
 
@@ -35,7 +39,33 @@ export function HeaderTitle({
   );
 }
 
+/**
+ * 탭 화면용 ← 뒤로가기 — 전체 메뉴에서 들어오는 화면(내 업무 등)에 단다.
+ * 탭 내비게이션의 방문 기록(backBehavior: 'history')을 따라 이전 탭으로 돌아가고,
+ * 기록이 없으면(앱을 이 탭에서 시작) 전체 메뉴로 보낸다.
+ */
+export function TabBackButton() {
+  const nav = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  return (
+    <Pressable
+      onPress={() => (nav.canGoBack() ? nav.goBack() : nav.navigate('Menu'))}
+      hitSlop={10}
+      style={s.backBtn}
+      accessibilityLabel="뒤로가기"
+    >
+      <Ionicons name="arrow-back" size={22} color={colors.brandDeep} />
+    </Pressable>
+  );
+}
+
 const s = StyleSheet.create({
+  backBtn: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   tile: {
     width: 30,

@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { big, compact, dateTime, num, seoulYmd, signClass, todaySeoul } from '@/lib/format';
+import { CategoryLimitsSection } from '@/components/CategoryLimits';
 import { EntryFormModal } from '@/components/EntryFormModal';
 import { MoneyInput } from '@/components/MoneyInput';
 import { PopbillPanel } from '@/components/PopbillPanel';
@@ -66,6 +67,9 @@ export default function TreasuryPage() {
       ) : (
         <Spinner />
       )}
+
+      {/* ── 항목별 지출 한도 — 식비·접대비 등 한도 대비 사용액·남은 금액 ── */}
+      <CategoryLimitsSection />
 
       {/* ── 자금 달력 — 계좌 잔액 위, 들어올 돈(초록)·나갈 돈(빨강)·입금 예정 등록 ── */}
       <CashCalendar onChanged={kpiRes.reload} />

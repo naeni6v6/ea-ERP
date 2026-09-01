@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Text, TextInput } from './themed';
 import { api } from '../api/client';
 import { qk, useNotice } from '../api/queries';
@@ -138,54 +139,137 @@ export function NoticeBanner() {
     );
   }
 
-  // ── 미확인 — 시선을 끄는 카드 ──
+  // ── 미확인 — 웹과 같은 강조 카드: 그라데이션 면 + 빨간 아이콘 타일 + 점 격자·원 장식 ──
   return (
-    <View style={s.card} accessibilityRole="alert">
-      <View style={s.head}>
-        <View style={s.iconTile}>
-          <Ionicons name="megaphone-outline" size={20} color="#fff" />
+    <View style={s.cardShadow} accessibilityRole="alert">
+      <LinearGradient
+        colors={['#fff1ec', '#fff7f4', '#ffffff']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={s.cardBody}
+      >
+        {/* 장식 — 웹과 동일한 점 격자와 은은한 원 */}
+        <View style={s.dots} pointerEvents="none">
+          {Array.from({ length: 24 }, (_, i) => (
+            <View key={i} style={s.dot} />
+          ))}
         </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={[s.tag, ft.bold]}>오늘의 공지</Text>
-            <View style={{ flex: 1 }} />
-            {EditBtn}
+        <View style={s.deco} pointerEvents="none" />
+
+        <View style={s.head}>
+          {/* 아이콘 타일 — 웹 from-red-500 to-red-600 그라데이션 + 하이라이트 */}
+          <LinearGradient colors={['#ef4444', '#dc2626']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.iconTile}>
+            <View style={s.iconShine} pointerEvents="none" />
+            <Ionicons name="megaphone-outline" size={24} color="#fff" />
+          </LinearGradient>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[s.tag, ft.bold]}>오늘의 공지</Text>
+              <View style={{ flex: 1 }} />
+              {EditBtn}
+            </View>
+            <Text style={[s.content, ft.bold]}>{notice.content}</Text>
           </View>
-          <Text style={[s.content, ft.bold]}>{notice.content}</Text>
         </View>
-      </View>
-      <Pressable onPress={ack} style={({ pressed }) => [s.ackBtn, pressed && { opacity: 0.85 }]}>
-        <Text style={[{ color: '#fff', fontSize: 15 }, ft.bold]}>확인했습니다</Text>
-      </Pressable>
+
+        <Pressable onPress={ack} style={({ pressed }) => [s.ackBtn, pressed && { opacity: 0.85 }]}>
+          <Text style={[{ color: '#fff', fontSize: 14.5 }, ft.bold]}>확인했습니다 →</Text>
+        </Pressable>
+      </LinearGradient>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  /* 등록/수정 입력 카드 */
   card: {
-    backgroundColor: '#fff5f2', // 웹 그라데이션의 시작 톤
+    backgroundColor: '#fff5f2',
     borderRadius: 18,
     padding: 16,
     gap: 12,
+    borderWidth: 1,
+    borderColor: '#fee2e2',
     ...sh.card,
   },
-  head: { flexDirection: 'row', gap: 12 },
+  /* 웹 shadow-[0_10px_30px_-18px_rgba(207,75,60,0.55)] — 그림자는 바깥, 클리핑은 안쪽 */
+  cardShadow: {
+    borderRadius: 18,
+    backgroundColor: '#fff1ec',
+    shadowColor: '#cf4b3c',
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  cardBody: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    padding: 16,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: '#fee2e2', // 웹 border-red-100
+  },
+  /* 점 격자 — 웹 radial-gradient dots (red-200/70) */
+  dots: {
+    position: 'absolute',
+    right: 60,
+    top: 14,
+    width: 76,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(254,202,202,0.9)' },
+  /* 은은한 원 — 웹 bottom-right red-100/60 원 */
+  deco: {
+    position: 'absolute',
+    right: -34,
+    bottom: -70,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(254,226,226,0.55)',
+  },
+  head: { flexDirection: 'row', gap: 13 },
+  /* 웹 h-16 w-16 rounded-2xl 그라데이션 타일 + 좌상단 하이라이트 */
   iconTile: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#e5484d', // 웹 red-500/600 톤
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#ef4444',
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 4,
+  },
+  iconShine: {
+    position: 'absolute',
+    left: -8,
+    top: -10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.32)',
   },
   tag: { fontSize: 12, color: '#dc2626' },
-  content: { fontSize: 16, lineHeight: 23, color: colors.ink, marginTop: 3 },
+  content: { fontSize: 17, lineHeight: 24, color: colors.ink, marginTop: 3, letterSpacing: -0.2 },
+  /* 웹 rounded-xl bg-red-600 px-5 — 오른쪽 정렬 알약 버튼 */
   ackBtn: {
-    minHeight: 46,
-    borderRadius: 14,
+    alignSelf: 'flex-end',
+    minHeight: 42,
+    borderRadius: 13,
+    paddingHorizontal: 20,
     backgroundColor: '#dc2626',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#ef4444',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   editBtn: {
     width: 30,

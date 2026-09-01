@@ -13,12 +13,16 @@ import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
 import { ApprovalsScreen } from '../screens/ApprovalsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { MenuScreen } from '../screens/MenuScreen';
+import { MyTasksScreen } from '../screens/MyTasksScreen';
+import { PnlScreen } from '../screens/PnlScreen';
+import { JournalScreen } from '../screens/JournalScreen';
+import { TreasuryScreen } from '../screens/TreasuryScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { ExpenseDetailScreen } from '../screens/ExpenseDetailScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { Spinner } from '../components/ui';
 import { ApprovalBell, LogoTitle } from '../components/HomeHeader';
-import { HEADER_TINT, HeaderTitle } from '../components/ScreenHeader';
+import { HEADER_TINT, HeaderTitle, TabBackButton } from '../components/ScreenHeader';
 import { colors, ft, sh } from '../theme';
 import type { MainTabParamList, RootStackParamList } from './types';
 import { View } from 'react-native';
@@ -43,6 +47,7 @@ const TAB_ICON: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> =
   Submit: 'card-outline',
   Projects: 'briefcase-outline',
   Approvals: 'shield-checkmark-outline',
+  MyTasks: 'clipboard-outline',
   Menu: 'menu-outline',
 };
 
@@ -56,6 +61,8 @@ function Tabs() {
 
   return (
     <Tab.Navigator
+      // ← 뒤로가기가 '직전에 보던 탭'으로 돌아가게 방문 기록을 쓴다
+      backBehavior="history"
       screenOptions={({ route }) => ({
         // 아이콘·라벨은 기본값보다 한 단계 작게 — 탭바가 꽉 차 보이지 않게
         tabBarIcon: ({ color }) => <Ionicons name={TAB_ICON[route.name]} color={color} size={21} />,
@@ -119,7 +126,7 @@ function Tabs() {
           name="Approvals"
           component={ApprovalsScreen}
           options={{
-            title: '승인함',
+            title: '승인',
             headerTitle: () => (
               <HeaderTitle title="승인함" icon="shield-checkmark-outline" tint={HEADER_TINT.pos} />
             ),
@@ -128,6 +135,15 @@ function Tabs() {
           }}
         />
       )}
+      <Tab.Screen
+        name="MyTasks"
+        component={MyTasksScreen}
+        options={{
+          title: '내 업무',
+          headerLeft: () => <TabBackButton />,
+          headerTitle: () => <HeaderTitle title="내 업무" icon="clipboard-outline" tint={HEADER_TINT.warn} />,
+        }}
+      />
       {/* 토스의 '전체' 탭 — 웹 사이드바 전체 메뉴. 내 정보도 이 안에서 연다 */}
       <Tab.Screen
         name="Menu"
@@ -177,6 +193,9 @@ export function RootNavigator() {
             />
             <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: '비밀번호 변경' }} />
             <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: '내 정보' }} />
+            <Stack.Screen name="Pnl" component={PnlScreen} options={{ title: '손익' }} />
+            <Stack.Screen name="Journal" component={JournalScreen} options={{ title: '거래' }} />
+            <Stack.Screen name="Treasury" component={TreasuryScreen} options={{ title: '자금' }} />
             <Stack.Screen
               name="Placeholder"
               component={PlaceholderScreen}

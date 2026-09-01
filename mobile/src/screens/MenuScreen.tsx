@@ -43,31 +43,16 @@ const SECTIONS: MenuSection[] = [
     items: [
       { icon: 'speedometer-outline', label: '대시보드', go: (nav) => nav.navigate('Home') },
       { icon: 'briefcase-outline', label: '프로젝트', go: (nav) => nav.navigate('Projects') },
-      { icon: 'clipboard-outline', label: '내 업무', go: (nav) => nav.navigate('Placeholder', { title: '내 업무' }) },
+      { icon: 'clipboard-outline', label: '내 업무', go: (nav) => nav.navigate('MyTasks') },
     ],
   },
   {
     title: '경영',
     tint: { bg: colors.posSoft, fg: colors.pos },
     items: [
-      {
-        icon: 'trending-up-outline',
-        label: '손익',
-        show: (s) => s.isAdmin,
-        go: (nav) => nav.navigate('Placeholder', { title: '손익' }),
-      },
-      {
-        icon: 'swap-horizontal-outline',
-        label: '거래',
-        show: (s) => s.isAdmin,
-        go: (nav) => nav.navigate('Placeholder', { title: '거래' }),
-      },
-      {
-        icon: 'wallet-outline',
-        label: '자금',
-        show: (s) => s.isCeo,
-        go: (nav) => nav.navigate('Placeholder', { title: '자금' }),
-      },
+      { icon: 'trending-up-outline', label: '손익', show: (s) => s.isAdmin, go: (nav) => nav.navigate('Pnl') },
+      { icon: 'swap-horizontal-outline', label: '거래', show: (s) => s.isAdmin, go: (nav) => nav.navigate('Journal') },
+      { icon: 'wallet-outline', label: '자금', show: (s) => s.isCeo, go: (nav) => nav.navigate('Treasury') },
     ],
   },
   {

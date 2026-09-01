@@ -7,19 +7,20 @@ import { useFilters } from '@/lib/filters';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { num, sdate } from '@/lib/format';
-import { ProjectUploadModal } from '@/components/ProjectModals';
+import { ProjectEditModal, ProjectRegisterModal } from '@/components/ProjectModals';
 import { Empty, ErrorBox, Progress, Spinner, StatusBadge } from '@/components/ui';
 import type { Project } from '@/lib/types';
 
 /**
  * 프로젝트 목록 — 카드형. 카드를 누르면 상세 페이지(/projects/[id])가 열린다.
- * 생성·업로드·드래그 정렬은 대시보드 보드에서 한다.
+ * 등록(직접 입력·파일 업로드)과 카드 연필 버튼 수정은 여기서, 드래그 정렬은 대시보드 보드에서 한다.
  */
 export default function ProjectsCardsPage() {
   const f = useFilters();
   const { isAdmin, codesOf, labelOf } = useSession();
   const [status, setStatus] = useState('');
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Project | null>(null);
 
   const res = useAsync(
     () =>
@@ -54,10 +55,10 @@ export default function ProjectsCardsPage() {
           {isAdmin && (
             <button
               className="btn-primary !px-3.5 !py-1.5 text-xs font-semibold"
-              onClick={() => setUploadOpen(true)}
-              title="CSV·TSV·JSON 파일로 여러 프로젝트를 한 번에 등록"
+              onClick={() => setRegisterOpen(true)}
+              title="직접 입력하거나 CSV·TSV·JSON 파일로 여러 프로젝트를 한 번에 등록"
             >
-              ⬆ 프로젝트 업로드
+              + 프로젝트 등록
             </button>
           )}
         </span>
@@ -78,6 +79,23 @@ export default function ProjectsCardsPage() {
               className="card group flex flex-col gap-3 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift"
             >
               <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <button
+                    className="-m-1 rounded-md p-1 text-ink-faint transition-colors hover:bg-line-soft hover:text-brand-deep"
+                    title="프로젝트 수정"
+                    aria-label="프로젝트 수정"
+                    onClick={(e) => {
+                      // 카드 전체가 상세 링크라 — 연필만 눌렀을 땐 이동을 막고 수정창을 연다
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditTarget(p);
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    </svg>
+                  </button>
+                )}
                 <StatusBadge status={p.status} label={labelOf('PROJECT_STATUS', p.status)} />
                 {p.isDelayed && <span className="badge bg-red-50 text-neg">지연</span>}
                 <span className="ml-auto font-num text-xs text-ink-faint">{p.code}</span>
@@ -114,11 +132,17 @@ export default function ProjectsCardsPage() {
         </div>
       )}
 
-      <ProjectUploadModal
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
+      <ProjectRegisterModal
+        open={registerOpen}
+        onClose={() => setRegisterOpen(false)}
         onSaved={res.reload}
         existingCodes={(res.data ?? []).map((p) => p.code)}
+      />
+
+      <ProjectEditModal
+        project={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSaved={res.reload}
       />
     </div>
   );

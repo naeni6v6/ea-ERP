@@ -7,6 +7,9 @@ export type RootStackParamList = {
   ProjectDetail: { projectId: string; name?: string };
   ChangePassword: undefined;
   Profile: undefined;
+  Pnl: undefined;
+  Journal: undefined;
+  Treasury: undefined;
   /** 아직 모바일로 안 옮긴 웹 메뉴 — 제목만 받아 준비 중 안내를 띄운다 */
   Placeholder: { title: string };
 };
@@ -17,5 +20,6 @@ export type MainTabParamList = {
   Submit: { seg?: 'card' | 'account' } | undefined;
   Projects: undefined;
   Approvals: undefined;
+  MyTasks: undefined;
   Menu: undefined;
 };

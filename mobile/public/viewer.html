@@ -165,9 +165,11 @@ const API_URL = 'http://localhost:4000/api';
 
 const DEVICES = [
   { id:'se',  name:'iPhone SE', w:375, h:667 },
-  { id:'i14', name:'iPhone 14', w:390, h:844 },
+  // iPhone 17 — 6.3인치, 논리 해상도 402×874pt
+  { id:'i17', name:'iPhone 17', w:402, h:874 },
   { id:'max', name:'Pro Max',   w:430, h:932 },
-  { id:'gal', name:'갤럭시 S',   w:360, h:780 },
+  // 갤럭시 S24 — 1080×2340(3x) = 360×780dp
+  { id:'s24', name:'갤럭시 S24', w:360, h:780 },
   { id:'pad', name:'iPad mini', w:768, h:1024, tablet:true },
 ];
 const ZOOMS = [
@@ -176,17 +178,23 @@ const ZOOMS = [
   { id:'0.85', name:'85%' },
   { id:'0.7',  name:'70%' },
 ];
+const ZOOM_MIN = 0.2, ZOOM_MAX = 2, ZOOM_STEP = 0.1;
 const STATUSBAR_H = 44;
 
 const $ = (s) => document.querySelector(s);
 let device = DEVICES[1];
 let zoom = 'fit';
+let customScale = 1;   // +/− 버튼으로 정한 자유 배율
+let lastScale = 1;     // 마지막으로 실제 적용된 배율 (+/−의 기준점)
 
 /* ── 기기·배율 버튼 ── */
 $('#devseg').innerHTML = DEVICES.map((d) =>
   `<button data-id="${d.id}">${d.name}</button>`).join('');
-$('#zoomseg').innerHTML = ZOOMS.map((z) =>
-  `<button data-id="${z.id}">${z.name}</button>`).join('');
+$('#zoomseg').innerHTML =
+  ZOOMS.map((z) => `<button data-id="${z.id}">${z.name}</button>`).join('') +
+  // 자유 확대·축소 — 지금 보이는 배율에서 10%씩 조절 (맞춤·프리셋 어디서든 이어서 동작)
+  `<button data-id="zout" title="10% 축소" style="min-width:30px;font-size:15px">−</button>` +
+  `<button data-id="zin" title="10% 확대" style="min-width:30px;font-size:15px">＋</button>`;
 
 $('#devseg').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
@@ -195,7 +203,15 @@ $('#devseg').addEventListener('click', (e) => {
 });
 $('#zoomseg').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
-  zoom = b.dataset.id;
+  const id = b.dataset.id;
+  if (id === 'zin' || id === 'zout') {
+    const next = lastScale + (id === 'zin' ? ZOOM_STEP : -ZOOM_STEP);
+    // 5% 단위로 반올림해 92%처럼 어중간한 숫자가 안 나오게 한다
+    customScale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 20) / 20));
+    zoom = 'custom';
+  } else {
+    zoom = id;
+  }
   apply();
 });
 
@@ -217,13 +233,16 @@ function apply() {
     const availH = stage.clientHeight - 70;
     const availW = stage.clientWidth - 60;
     // 창이 아주 좁아도 음수/0 배율이 되지 않게 하한을 둔다
-    scale = Math.max(0.2, Math.min(1, availH / (device.h + 22), availW / (device.w + 22)));
+    scale = Math.max(ZOOM_MIN, Math.min(1, availH / (device.h + 22), availW / (device.w + 22)));
+  } else if (zoom === 'custom') {
+    scale = customScale;
   } else {
     scale = parseFloat(zoom);
   }
+  lastScale = scale;
   $('#scaler').style.transform = `scale(${scale})`;
 
-  $('#dimtext').textContent = `${device.w} × ${device.h}` + (scale < 0.999 ? ` (${Math.round(scale * 100)}%)` : '');
+  $('#dimtext').textContent = `${device.w} × ${device.h}` + (Math.abs(scale - 1) > 0.001 ? ` (${Math.round(scale * 100)}%)` : '');
 
   for (const b of $('#devseg').children) b.classList.toggle('on', b.dataset.id === device.id);
   for (const b of $('#zoomseg').children) b.classList.toggle('on', b.dataset.id === zoom);

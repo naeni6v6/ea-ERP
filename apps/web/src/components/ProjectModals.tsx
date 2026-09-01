@@ -6,28 +6,32 @@ import { useSession } from '@/lib/session';
 import { num } from '@/lib/format';
 import { MoneyInput } from '@/components/MoneyInput';
 import { Field, Modal } from '@/components/ui';
+import type { Project } from '@/lib/types';
 
-/** 프로젝트 생성 모달 — 대시보드(통합 프로젝트 화면)에서 사용 */
-export function ProjectCreateModal({
-  open,
+/**
+ * 프로젝트 생성·수정 공용 폼.
+ * project를 주면 값이 채워진 수정 폼(PATCH), 없으면 빈 생성 폼(POST)이 된다.
+ */
+function ProjectForm({
+  project,
   onClose,
   onSaved,
 }: {
-  open: boolean;
+  project?: Project;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { businessTypes, departments, codesOf } = useSession();
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [businessTypeId, setBusinessTypeId] = useState('');
-  const [leadDepartmentId, setLeadDepartmentId] = useState('');
-  const [status, setStatus] = useState('ACTIVE');
-  const [startDate, setStartDate] = useState('');
-  const [planEndDate, setPlanEndDate] = useState('');
-  const [contractAmount, setContractAmount] = useState('');
-  const [budgetAmount, setBudgetAmount] = useState('');
-  const [goal, setGoal] = useState('');
+  const [code, setCode] = useState(project?.code ?? '');
+  const [name, setName] = useState(project?.name ?? '');
+  const [businessTypeId, setBusinessTypeId] = useState(project?.businessTypeId ?? '');
+  const [leadDepartmentId, setLeadDepartmentId] = useState(project?.leadDepartmentId ?? '');
+  const [status, setStatus] = useState(project?.status ?? 'ACTIVE');
+  const [startDate, setStartDate] = useState(project?.startDate?.slice(0, 10) ?? '');
+  const [planEndDate, setPlanEndDate] = useState(project?.planEndDate?.slice(0, 10) ?? '');
+  const [contractAmount, setContractAmount] = useState(project?.contractAmount ?? '');
+  const [budgetAmount, setBudgetAmount] = useState(project?.budgetAmount ?? '');
+  const [goal, setGoal] = useState(project?.goal ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -35,35 +39,32 @@ export function ProjectCreateModal({
     setBusy(true);
     setError('');
     try {
-      await api.post('/projects', {
+      const body = {
         code,
         name,
         businessTypeId,
         leadDepartmentId,
         status,
-        startDate: startDate || undefined,
-        planEndDate: planEndDate || undefined,
+        // 수정에서는 빈 값도 보내 날짜를 지울 수 있게 한다 (서버가 '' → null 처리)
+        startDate: project ? startDate : startDate || undefined,
+        planEndDate: project ? planEndDate : planEndDate || undefined,
         contractAmount: contractAmount || '0',
         budgetAmount: budgetAmount || '0',
-        goal: goal || undefined,
-      });
+        goal: project ? goal : goal || undefined,
+      };
+      if (project) await api.patch(`/projects/${project.id}`, body);
+      else await api.post('/projects', body);
       onSaved();
       onClose();
-      setCode('');
-      setName('');
-      setGoal('');
-      setContractAmount('');
-      setBudgetAmount('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '생성에 실패했습니다');
+      setError(e instanceof Error ? e.message : project ? '수정에 실패했습니다' : '생성에 실패했습니다');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="프로젝트 생성" wide>
-      <div className="space-y-3.5">
+    <div className="space-y-3.5">
         <div className="grid grid-cols-3 gap-3">
           <Field label="코드" required hint="예: P-2026-002">
             <input className="input font-num" value={code} onChange={(e) => setCode(e.target.value)} />
@@ -159,10 +160,43 @@ export function ProjectCreateModal({
             onClick={submit}
             disabled={busy || !code || !name || !businessTypeId || !leadDepartmentId}
           >
-            {busy ? '생성 중…' : '생성'}
+            {busy ? (project ? '저장 중…' : '생성 중…') : project ? '저장' : '생성'}
           </button>
         </div>
-      </div>
+    </div>
+  );
+}
+
+/** 프로젝트 생성 모달 — 대시보드(통합 프로젝트 화면)에서 사용 */
+export function ProjectCreateModal({
+  open,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  return (
+    <Modal open={open} onClose={onClose} title="프로젝트 생성" wide>
+      <ProjectForm onClose={onClose} onSaved={onSaved} />
+    </Modal>
+  );
+}
+
+/** 프로젝트 수정 모달 — 카드의 연필 버튼에서 연다 */
+export function ProjectEditModal({
+  project,
+  onClose,
+  onSaved,
+}: {
+  project: Project | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  return (
+    <Modal open={!!project} onClose={onClose} title="프로젝트 수정" desc={project ? `${project.code} · ${project.name}` : undefined} wide>
+      {project && <ProjectForm key={project.id} project={project} onClose={onClose} onSaved={onSaved} />}
     </Modal>
   );
 }
@@ -241,14 +275,12 @@ interface ParsedRow {
   valid: boolean;
 }
 
-/** 업로드 파일(CSV·TSV·JSON)을 파싱해 미리보기 후 일괄 생성한다 */
-export function ProjectUploadModal({
-  open,
+/** 업로드 파일(CSV·TSV·JSON)을 파싱해 미리보기 후 일괄 생성한다 — 프로젝트 등록 모달의 '파일 업로드' 탭 */
+function ProjectUploadBody({
   onClose,
   onSaved,
   existingCodes,
 }: {
-  open: boolean;
   onClose: () => void;
   onSaved: () => void;
   /** 코드 미기재 행의 자동 코드 생성(PRJ-###)에 사용 */
@@ -428,8 +460,10 @@ export function ProjectUploadModal({
   const validCount = rows?.filter((r) => r.valid).length ?? 0;
 
   return (
-    <Modal open={open} onClose={close} title="프로젝트 업로드" desc="CSV · TSV · JSON 파일로 여러 프로젝트를 한 번에 등록합니다 (엑셀은 CSV로 저장 후 업로드)" wide>
       <div className="space-y-3.5">
+        <p className="text-xs text-ink-faint">
+          CSV · TSV · JSON 파일로 여러 프로젝트를 한 번에 등록합니다 (엑셀은 CSV로 저장 후 업로드)
+        </p>
         <div className="flex items-center gap-2">
           <input
             ref={fileRef}
@@ -522,6 +556,50 @@ export function ProjectUploadModal({
           )}
         </div>
       </div>
+  );
+}
+
+// ───────────────────────── 프로젝트 등록 (직접 입력 · 파일 업로드) ─────────────────────────
+
+/** 프로젝트 등록 모달 — 직접 입력과 파일 업로드를 탭으로 고른다 */
+export function ProjectRegisterModal({
+  open,
+  onClose,
+  onSaved,
+  existingCodes,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+  existingCodes: string[];
+}) {
+  const [mode, setMode] = useState<'manual' | 'file'>('manual');
+
+  return (
+    <Modal open={open} onClose={onClose} title="프로젝트 등록" wide>
+      <div className="mb-4 grid grid-cols-2 gap-1 rounded-lg bg-line-soft p-1">
+        {(
+          [
+            { key: 'manual', label: '✏️ 직접 입력' },
+            { key: 'file', label: '⬆ 파일 업로드' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setMode(t.key)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              mode === t.key ? 'bg-white text-brand-deep shadow-sm' : 'text-ink-mute hover:text-ink'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {mode === 'manual' ? (
+        <ProjectForm onClose={onClose} onSaved={onSaved} />
+      ) : (
+        <ProjectUploadBody onClose={onClose} onSaved={onSaved} existingCodes={existingCodes} />
+      )}
     </Modal>
   );
 }

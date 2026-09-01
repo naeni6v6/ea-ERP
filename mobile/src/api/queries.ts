@@ -2,15 +2,25 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { recentMonths } from '../lib/dates';
 import type {
+  BankAccount,
   BankTransaction,
+  BreakdownRow,
   CardExpense,
   CodeValue,
   CorporateCard,
   Dashboard,
+  EntryType,
   ExpenseList,
+  JournalEntry,
   Notice,
+  PlannedIncome,
+  PlannedPayment,
+  Pnl,
   Project,
+  Reserve,
   Task,
+  UserRow,
+  WorkLog,
 } from './types';
 
 /**
@@ -138,6 +148,91 @@ export const useProject = (id: string) =>
 
 export const useTasks = (projectId: string) =>
   useQuery({ queryKey: qk.tasks(projectId), queryFn: () => api.get<Task[]>(`/projects/${projectId}/tasks`) });
+
+// ───── 내 업무 (웹 my/page.tsx와 동일한 API) ─────
+
+/** scope: 'me' | 'all' | <userId> — 웹과 같은 규칙. all/개인별은 대표 전용 */
+const scopeQuery = (scope: string): string =>
+  scope === 'me' ? '' : scope === 'all' ? '?scope=all' : `?userId=${scope}`;
+const scopeAnd = (scope: string): string =>
+  scope === 'me' ? '' : scope === 'all' ? '&scope=all' : `&userId=${scope}`;
+
+export const useMyTasks = (scope: string) =>
+  useQuery({
+    queryKey: ['tasks', 'my', scope],
+    queryFn: () => api.get<Task[]>(`/tasks/my${scopeQuery(scope)}`),
+  });
+
+/** 특정 날짜의 업무 일지 */
+export const useWorkLogsOfDay = (date: string, scope: string) =>
+  useQuery({
+    queryKey: ['worklogs', scope, 'day', date],
+    queryFn: () => api.get<WorkLog[]>(`/worklogs?date=${date}${scopeAnd(scope)}`),
+  });
+
+/** 기간(월)의 업무 일지 — 캘린더 표시용 */
+export const useWorkLogsOfRange = (from: string, to: string, scope: string) =>
+  useQuery({
+    queryKey: ['worklogs', scope, 'range', from, to],
+    queryFn: () => api.get<WorkLog[]>(`/worklogs?from=${from}&to=${to}${scopeAnd(scope)}`),
+  });
+
+/** 직원 목록 — 대표의 개인별 보기용 */
+export const useUsers = (enabled: boolean) =>
+  useQuery({ queryKey: ['users'], queryFn: () => api.get<UserRow[]>('/users'), enabled });
+
+// ───── 손익·거래·자금 (경영 메뉴 — 웹과 동일 API) ─────
+
+/** 손익계산서 — CEO/ADMIN 전용(그 외 403). yoy면 전년 동기가 붙는다 */
+export const usePnl = (from: string, to: string, yoy: boolean, enabled: boolean) =>
+  useQuery({
+    queryKey: ['pnl', from, to, yoy],
+    queryFn: () => api.get<Pnl>(`/metrics/pnl?preset=custom&from=${from}&to=${to}${yoy ? '&yoy=1' : ''}`),
+    enabled,
+  });
+
+export const usePnlBreakdown = (from: string, to: string, groupBy: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['pnl-breakdown', from, to, groupBy],
+    queryFn: () =>
+      api.get<{ rows: BreakdownRow[] }>(`/metrics/pnl/breakdown?preset=custom&from=${from}&to=${to}&groupBy=${groupBy}`),
+    enabled,
+  });
+
+/** 거래 목록 — CEO/ADMIN 전용 */
+export const useJournal = (from: string, to: string, type: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['journal', from, to, type],
+    queryFn: () =>
+      api.get<{ total: number; rows: JournalEntry[] }>(
+        `/journal?from=${from}&to=${to}&take=100${type ? `&type=${type}` : ''}`,
+      ),
+    enabled,
+  });
+
+export const useEntryTypes = (enabled: boolean) =>
+  useQuery({ queryKey: ['entry-types'], queryFn: () => api.get<EntryType[]>('/journal/entry-types'), enabled });
+
+/** 자금 — 전부 CEO 전용(그 외 403이라 isCeo일 때만 켠다) */
+export const useBankAccounts = (enabled: boolean) =>
+  useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get<BankAccount[]>('/treasury/bank-accounts'), enabled });
+
+export const useReserves = (enabled: boolean) =>
+  useQuery({ queryKey: ['reserves'], queryFn: () => api.get<Reserve[]>('/treasury/reserves'), enabled });
+
+export const usePlannedIncomes = (enabled: boolean) =>
+  useQuery({
+    queryKey: ['planned-incomes'],
+    queryFn: () => api.get<PlannedIncome[]>('/treasury/planned-incomes'),
+    enabled,
+  });
+
+export const usePlannedPayments = (enabled: boolean) =>
+  useQuery({
+    queryKey: ['planned-payments'],
+    queryFn: () => api.get<PlannedPayment[]>('/treasury/planned-payments'),
+    enabled,
+  });
 
 /** 최근 6개월 월별 손익 — 손익 추이 그래프용. CEO/ADMIN 전용(/metrics/pnl이 403이면 비활성) */
 export const useMonthlyPnl = (enabled: boolean) =>

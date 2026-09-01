@@ -124,10 +124,99 @@ export interface Pnl {
   grossProfit: string;
   sga: string;
   operatingProfit: string;
+  nonOpIncome: string;
+  nonOpExpense: string;
+  preTaxIncome: string;
+  incomeTax: string;
   netIncome: string;
   grossMarginPct: number | null;
   operatingMarginPct: number | null;
   netMarginPct: number | null;
+  /** yoy=1로 부르면 전년 동기가 붙는다 */
+  previousYear?: Pnl;
+}
+
+/** 손익 분해(그룹별) 한 줄 — 웹 BreakdownRow와 동일 */
+export interface BreakdownRow extends Omit<Pnl, 'range' | 'previousYear'> {
+  id: string | null;
+  name: string;
+}
+
+// ───── 거래 (GET /journal — 웹 lib/types.ts와 동일) ─────
+
+export interface EntryType {
+  type: string;
+  label: string;
+}
+
+export interface JournalLine {
+  id: string;
+  accountId: string;
+  debit: string;
+  credit: string;
+  memo: string | null;
+  account?: { code: string; name: string; plSection: string; category: string };
+  department?: { name: string } | null;
+  project?: { name: string } | null;
+  businessType?: { name: string } | null;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryNo: number;
+  entryDate: string;
+  type: string;
+  status: 'POSTED' | 'VOID';
+  source: string;
+  memo: string | null;
+  partner?: { name: string } | null;
+  lines: JournalLine[];
+}
+
+// ───── 자금 (CEO 전용 — /treasury/*) ─────
+
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  alias: string;
+  accountNoMasked: string | null;
+  purpose: string;
+  isRestricted: boolean;
+  isActive: boolean;
+  balance: string;
+  department?: { name: string } | null;
+}
+
+export interface Reserve {
+  id: string;
+  category: string;
+  purpose: string;
+  amount: string;
+  status: 'ACTIVE' | 'RELEASED';
+  memo: string | null;
+}
+
+export interface PlannedIncome {
+  id: string;
+  title: string;
+  amount: string;
+  dueDate: string;
+  memo: string | null;
+  status: 'SCHEDULED' | 'RECEIVED' | 'CANCELLED';
+}
+
+export interface PlannedPayment {
+  id: string;
+  kind: 'CONFIRMED' | 'PLANNED';
+  title: string;
+  category: string | null;
+  amount: string;
+  dueDate: string;
+  status: 'SCHEDULED' | 'PAID' | 'CANCELLED';
+  memo: string | null;
+  department?: { name: string } | null;
+  project?: { name: string } | null;
+  businessType?: { name: string } | null;
 }
 
 export interface TreasuryKpi {
@@ -216,7 +305,28 @@ export interface Task {
   projectId: string;
   title: string;
   assignee?: { id: string; name: string } | null;
+  project?: { id: string; name: string; code: string };
   dueDate: string | null;
   status: string;
   isDone: boolean;
+  /** 완료 처리 시각 — 일별 완료 현황 차트용 */
+  doneAt: string | null;
+}
+
+/** 일일 업무 일지 (GET /worklogs — 웹 lib/types.ts와 동일) */
+export interface WorkLog {
+  id: string;
+  logDate: string;
+  content: string;
+  updatedAt: string;
+  user?: { id: string; name: string };
+}
+
+/** 직원 목록 (GET /users — CEO 전용, 내 업무의 개인별 보기용) */
+export interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+  department?: { id: string; name: string } | null;
 }
