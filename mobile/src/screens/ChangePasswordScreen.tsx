@@ -4,7 +4,7 @@ import { Text, TextInput } from '../components/themed';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { api } from '../api/client';
 import { PrimaryButton } from '../components/ui';
-import { colors } from '../theme';
+import { colors, sh } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChangePassword'>;
@@ -84,13 +84,12 @@ export function ChangePasswordScreen({ navigation }: Props) {
 
 const s = StyleSheet.create({
   input: {
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#fff',
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: colors.card,
     paddingHorizontal: 16,
     fontSize: 16,
     color: colors.ink,
+    ...sh.card,
   },
 });

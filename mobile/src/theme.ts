@@ -1,16 +1,22 @@
-import type { TextStyle } from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
 
-/** 웹과 같은 톤 — 따뜻한 중성색 + 주황 브랜드 (docs/모바일앱_개발_프롬프트.md §5) */
+/**
+ * 웹과 같은 톤 — 따뜻한 중성색 + 주황 브랜드 (docs/모바일앱_개발_프롬프트.md §5).
+ * iOS 그룹 리스트처럼 배경을 살짝 깊게 깔고, 카드는 테두리 없이 흰 면+그림자로 띄운다.
+ */
 export const colors = {
   brand: '#f5911e',
+  /** 웹 brand.dark — 그라데이션의 끝색 */
+  brandDark: '#dd7a0a',
   brandDeep: '#b45f05',
   brandSoft: '#fdeeda',
   ink: '#2a2724',
   inkMute: '#57514b',
   inkFaint: '#857d75',
-  line: '#eae5e0',
-  bgSoft: '#f5f2ef',
-  bg: '#faf8f6',
+  line: '#e9e3dd',
+  bgSoft: '#ece8e2',
+  /** 페이지 배경 — iOS 설정처럼 카드보다 확실히 깊은 워멀 그레이 */
+  bg: '#f4f1ed',
   card: '#ffffff',
   pos: '#2f8f5b',
   neg: '#cf4b3c',
@@ -41,3 +47,44 @@ export const ft = {
 
 /** 금액 등 숫자는 폭이 일정하게 — Pretendard의 tabular figures 사용 */
 export const numFont: TextStyle = { fontVariant: ['tabular-nums'] };
+
+/**
+ * 그림자 — 웹 tailwind boxShadow(soft/lift/glow)와 같은 따뜻한 먹색(#2a2724) 기반.
+ * iOS는 shadow*, Android는 elevation이 각각 먹는다. 색 있는 면(brand)에는 glow.
+ */
+export const sh = {
+  /** 카드 기본 — 웹 shadow-soft. 테두리 없는 카드를 이것으로 띄운다 */
+  card: {
+    shadowColor: '#2a2724',
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  } as ViewStyle,
+  /** 떠 있는 요소(풋터·활성 세그먼트) — 웹 shadow-lift */
+  lift: {
+    shadowColor: '#2a2724',
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
+  } as ViewStyle,
+  /** 주황 버튼·아바타 — 웹 shadow-glow */
+  glow: {
+    shadowColor: '#f5911e',
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  } as ViewStyle,
+};
+
+/** 브랜드 그라데이션 — 웹 아바타의 from-brand to-brand-dark와 동일 */
+export const brandGradient = [colors.brand, colors.brandDark] as const;
+
+/** iOS 카드 공통 꼴 — 테두리 없이 큰 라운드 + soft 그림자 */
+export const card: ViewStyle = {
+  backgroundColor: colors.card,
+  borderRadius: 18,
+  ...sh.card,
+};

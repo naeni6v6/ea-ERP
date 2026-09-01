@@ -30,6 +30,13 @@ export const dateLabel = (ymd: string): string => {
   return `${y}.${p2(m)}.${p2(d)} (${DOW[dow]})`;
 };
 
+/** "YYYY-MM-DD" → "9월 1일 (월)" — 토스식 날짜 그룹 라벨 */
+export const shortDateLabel = (ymd: string): string => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return `${m}월 ${d}일 (${DOW[dow]})`;
+};
+
 /** ISO → "14:05" (KST) */
 export const kstTime = (iso: string): string => {
   const { hh, mm } = kstParts(iso);

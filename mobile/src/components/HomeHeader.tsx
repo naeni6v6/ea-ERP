@@ -6,16 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from './themed';
 import { useAuth } from '../auth/AuthContext';
 import { useSubmitted } from '../api/queries';
-import { colors, ft, numFont } from '../theme';
+import { ft, numFont } from '../theme';
 import type { MainTabParamList } from '../navigation/types';
 
-/** 홈 헤더 좌측 — 실제 로고 (흰 글자가 있어 웹 헤더처럼 어두운 shell 면 위에 얹는다) */
+/** 홈 헤더 좌측 — 실제 로고. 헤더 전체가 검은 띠(shell)라 배경 없이 크게 얹는다 */
 export function LogoTitle() {
-  return (
-    <View style={s.logoShell}>
-      <Image source={require('../../assets/motionbridge-logo.png')} style={s.logoImg} resizeMode="contain" />
-    </View>
-  );
+  return <Image source={require('../../assets/motionbridge-logo.png')} style={s.logoImg} resizeMode="contain" />;
 }
 
 /**
@@ -37,7 +33,7 @@ export function ApprovalBell() {
       style={s.bellWrap}
       accessibilityLabel={`결제 승인 대기 ${count}건`}
     >
-      <Ionicons name="notifications-outline" size={22} color={colors.inkMute} />
+      <Ionicons name="notifications-outline" size={22} color="rgba(255,255,255,0.85)" />
       {count > 0 && (
         <View style={s.badge}>
           <Text style={[s.badgeText, ft.bold, numFont]}>{count > 99 ? '99+' : count}</Text>
@@ -48,13 +44,7 @@ export function ApprovalBell() {
 }
 
 const s = StyleSheet.create({
-  logoShell: {
-    backgroundColor: colors.shell,
-    borderRadius: 9,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  logoImg: { width: 88, height: 26 },
+  logoImg: { width: 128, height: 36 },
   bellWrap: {
     width: 40,
     height: 40,

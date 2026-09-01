@@ -20,6 +20,7 @@ type AuthState = { status: 'loading' } | { status: 'signedOut' } | { status: 'si
 interface AuthValue {
   state: AuthState;
   isCeo: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -146,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       state,
       isCeo: state.status === 'signedIn' && state.me.effectiveScope.isCeo,
+      isAdmin: state.status === 'signedIn' && state.me.effectiveScope.isAdmin,
       login,
       signOut,
     }),

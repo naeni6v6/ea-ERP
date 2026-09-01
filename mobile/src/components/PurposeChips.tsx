@@ -47,13 +47,11 @@ const s = StyleSheet.create({
   chip: {
     minHeight: 36,
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgSoft,
   },
-  chipOn: { borderColor: colors.brand, backgroundColor: colors.brandSoft },
+  chipOn: { backgroundColor: colors.brandSoft },
   label: { fontSize: 14, color: colors.inkMute },
   labelOn: { color: colors.brandDeep, ...ft.bold },
 });

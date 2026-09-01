@@ -10,7 +10,7 @@ import {
 import { Text, TextInput } from '../components/themed';
 import { useAuth } from '../auth/AuthContext';
 import { PrimaryButton } from '../components/ui';
-import { colors, ft } from '../theme';
+import { colors, ft, sh } from '../theme';
 
 /** 로그인 — 이메일/비밀번호만. 계정·비밀번호 예시는 절대 표시하지 않는다. */
 export function LoginScreen() {
@@ -90,21 +90,21 @@ const s = StyleSheet.create({
   logoShell: {
     alignSelf: 'stretch',
     backgroundColor: colors.shell,
-    borderRadius: 18,
+    borderRadius: 24,
     paddingVertical: 26,
     alignItems: 'center',
+    ...sh.lift,
   },
   logoImg: { width: 220, height: 80 },
   subtitle: { fontSize: 14, color: colors.inkFaint },
   input: {
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#fff',
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: colors.card,
     paddingHorizontal: 16,
     fontSize: 16,
     color: colors.ink,
+    ...sh.card,
   },
   error: {
     color: colors.neg,

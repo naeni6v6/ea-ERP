@@ -22,9 +22,7 @@ export function NoticeBanner() {
 const s = StyleSheet.create({
   banner: {
     backgroundColor: '#fdf2f1', // 웹 bg-red-50/60
-    borderWidth: 1,
-    borderColor: '#f6d5d0', // 웹 border-red-100
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 5,

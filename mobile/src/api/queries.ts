@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { recentMonths } from '../lib/dates';
 import type {
+  BankTransaction,
   CardExpense,
   CodeValue,
   CorporateCard,
@@ -20,6 +21,8 @@ import type {
 export const qk = {
   cards: ['cards'] as const,
   unsubmitted: ['expenses', 'unsubmitted'] as const,
+  allExpenses: ['expenses', 'all'] as const,
+  bankTxns: ['bank-transactions'] as const,
   submitted: ['expenses', 'submitted'] as const,
   codeValues: ['code-values'] as const,
   dashboard: ['dashboard'] as const,
@@ -41,6 +44,21 @@ export const useUnsubmitted = () =>
   useQuery({
     queryKey: qk.unsubmitted,
     queryFn: () => api.get<ExpenseList>('/cards/expenses?status=PENDING,REJECTED&take=200'),
+  });
+
+/** 카드지출 전체 내역 — 지출 탭 카드 페이지. status 없이 부르면 전 상태가 온다 */
+export const useAllCardExpenses = () =>
+  useQuery({
+    queryKey: qk.allExpenses,
+    queryFn: () => api.get<ExpenseList>('/cards/expenses?take=300'),
+  });
+
+/** 계좌 입출금 내역 — 지출 탭 계좌 페이지. 대표 전용(그 외 403)이라 isCeo일 때만 켠다 */
+export const useBankTransactions = (enabled: boolean) =>
+  useQuery({
+    queryKey: qk.bankTxns,
+    queryFn: () => api.get<BankTransaction[]>('/treasury/bank-transactions?take=300'),
+    enabled,
   });
 
 /** 승인 대기 (CEO 승인함·알림 벨) — 웹 알림 벨과 같은 60초 폴링이라 웹에서 승인하면 앱 배지도 따라 준다 */
@@ -122,5 +140,6 @@ export const useInvalidateExpenses = () => {
       qc.invalidateQueries({ queryKey: qk.cards }),
       qc.invalidateQueries({ queryKey: qk.unsubmitted }),
       qc.invalidateQueries({ queryKey: qk.submitted }),
+      qc.invalidateQueries({ queryKey: qk.allExpenses }),
     ]);
 };

@@ -14,8 +14,8 @@ import type { CardExpense, ConfirmBulkResult } from '../api/types';
 import { OfflineBanner, useOnline } from '../components/OfflineBanner';
 import { Empty, ErrorView, PrimaryButton, Spinner } from '../components/ui';
 import { won } from '../lib/money';
-import { dateLabel, kstTime, kstYmd } from '../lib/dates';
-import { colors, ft, numFont } from '../theme';
+import { kstTime, kstYmd, shortDateLabel } from '../lib/dates';
+import { colors, ft, numFont, sh } from '../theme';
 
 /** 승인함 (CEO 전용) — 승인 대기 목록에서 건별·일괄 승인과 반려를 처리한다 */
 export function ApprovalsScreen() {
@@ -43,7 +43,7 @@ export function ApprovalsScreen() {
     }
     return [...byDay.entries()]
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([ymd, data]) => ({ title: dateLabel(ymd), data }));
+      .map(([ymd, data]) => ({ title: shortDateLabel(ymd), data }));
   }, [rows]);
 
   const run = async (fn: () => Promise<void>) => {
@@ -125,7 +125,7 @@ export function ApprovalsScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          stickySectionHeadersEnabled
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
@@ -134,11 +134,7 @@ export function ApprovalsScreen() {
               tintColor={colors.brand}
             />
           }
-          renderSectionHeader={({ section }) => (
-            <View style={s.dayHeader}>
-              <Text style={s.dayHeaderText}>{section.title}</Text>
-            </View>
-          )}
+          renderSectionHeader={({ section }) => <Text style={s.dayHeader}>{section.title}</Text>}
           renderItem={({ item }) => (
             <ApprovalRow
               expense={item}
@@ -304,26 +300,26 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
     backgroundColor: colors.bg,
   },
   dayHeader: {
-    backgroundColor: colors.bgSoft,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
+    fontSize: 13,
+    color: colors.inkFaint,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 6,
+    ...ft.semibold,
   },
-  dayHeaderText: { fontSize: 13, ...ft.bold, color: colors.inkMute },
   row: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
+    ...sh.card,
   },
   checkboxWrap: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   checkbox: {
@@ -344,24 +340,23 @@ const s = StyleSheet.create({
   miniBtn: {
     minHeight: 40,
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingHorizontal: 18,
+    borderRadius: 12,
   },
-  miniConfirm: { borderColor: '#bcdfcc', backgroundColor: colors.posSoft },
-  miniReject: { borderColor: '#f0c4bc', backgroundColor: colors.negSoft },
+  miniConfirm: { backgroundColor: colors.posSoft },
+  miniReject: { backgroundColor: colors.negSoft },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     margin: 12,
     marginBottom: 0,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
     padding: 12,
+    ...sh.card,
   },
-  bannerGood: { backgroundColor: colors.posSoft, borderColor: '#bcdfcc' },
-  bannerBad: { backgroundColor: colors.negSoft, borderColor: '#f0c4bc' },
+  bannerGood: { backgroundColor: colors.posSoft },
+  bannerBad: { backgroundColor: colors.negSoft },
   footer: {
     position: 'absolute',
     left: 0,
@@ -370,8 +365,7 @@ const s = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
     backgroundColor: colors.bg,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
+    ...sh.lift,
   },
   modalBackdrop: {
     flex: 1,
@@ -380,16 +374,16 @@ const s = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderRadius: 22,
     padding: 18,
     gap: 10,
+    ...sh.lift,
   },
   reasonInput: {
     minHeight: 72,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.bgSoft,
     padding: 12,
     fontSize: 15,
     color: colors.ink,

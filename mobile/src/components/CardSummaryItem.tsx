@@ -4,7 +4,7 @@ import { Text } from './themed';
 import type { CorporateCard } from '../api/types';
 import { CardBrandMark, brandOf } from './CardBrandMark';
 import { big, won } from '../lib/money';
-import { colors, ft, numFont } from '../theme';
+import { colors, ft, numFont, sh } from '../theme';
 
 /** 내 카드 1장 — 이번 달 이용금액(크게) + 잔여한도 */
 export function CardSummaryItem({ card }: { card: CorporateCard }) {
@@ -51,10 +51,9 @@ export function CardSummaryItem({ card }: { card: CorporateCard }) {
 const s = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 18,
     padding: 16,
+    ...sh.card,
   },
   cardName: { fontSize: 16, color: colors.ink },
   cardSub: { fontSize: 13, color: colors.inkFaint, marginTop: 2 },

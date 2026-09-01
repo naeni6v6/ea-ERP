@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/themed';
-import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+import { CompositeNavigationProp, useIsFocused, useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCards, useDashboard, useMonthlyPnl, useUnsubmitted, visibleRows } from '../api/queries';
@@ -14,7 +15,7 @@ import { CardSummaryItem } from '../components/CardSummaryItem';
 import { TrendBars } from '../components/TrendBars';
 import { Empty, ErrorView, Spinner } from '../components/ui';
 import { big, won } from '../lib/money';
-import { colors, ft, numFont } from '../theme';
+import { colors, ft, numFont, sh } from '../theme';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 
 type Nav = CompositeNavigationProp<
@@ -29,6 +30,8 @@ type Nav = CompositeNavigationProp<
  */
 export function DashboardScreen() {
   const nav = useNavigation<Nav>();
+  // 홈만 헤더가 검은 띠라 상태바 글자를 밝게 — 다른 탭으로 가면 전역(dark)으로 돌아간다
+  const focused = useIsFocused();
   const dash = useDashboard();
   const cards = useCards();
   const unsub = useUnsubmitted();
@@ -46,6 +49,7 @@ export function DashboardScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {focused && <StatusBar style="light" />}
       <OfflineBanner dataUpdatedAt={dash.dataUpdatedAt || undefined} />
       <ScrollView
         contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 32 }}
@@ -148,19 +152,6 @@ export function DashboardScreen() {
                   ))}
                 </View>
 
-                <View style={s.subCard}>
-                  <Text style={[s.subTitle, ft.bold]}>자금 예측</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {([['7일 뒤', d.treasury.forecast.d7], ['30일 뒤', d.treasury.forecast.d30], ['90일 뒤', d.treasury.forecast.d90]] as const).map(([label, v]) => (
-                      <View key={label} style={s.forecastCell}>
-                        <Text style={{ fontSize: 12, color: colors.inkFaint }}>{label}</Text>
-                        <Text style={[s.forecastVal, ft.bold, numFont, { color: big(v) < 0n ? colors.neg : colors.ink }]}>
-                          {won(v)}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
               </Section>
             )}
 
@@ -266,10 +257,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: colors.brandSoft,
-    borderColor: '#f3cf9c',
-    borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
+    ...sh.card,
   },
   bannerTitle: { color: colors.brandDeep, fontSize: 15, lineHeight: 21 },
   bannerSub: { color: colors.inkMute, fontSize: 13, marginTop: 2 },
@@ -285,43 +275,32 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 17, color: colors.ink },
   subCard: {
     backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 16,
     padding: 14,
     gap: 8,
     marginTop: 10,
+    ...sh.card,
   },
   subTitle: { fontSize: 13.5, color: colors.ink },
   acctRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, alignItems: 'center' },
   acctName: { flex: 1, fontSize: 13.5, color: colors.inkMute },
   acctBal: { fontSize: 13.5, color: colors.ink },
-  forecastCell: {
-    flex: 1,
-    backgroundColor: colors.bgSoft,
-    borderRadius: 10,
-    padding: 10,
-    gap: 3,
-  },
-  forecastVal: { fontSize: 13 },
   projRow: {
     flexDirection: 'row',
     backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 16,
     paddingVertical: 12,
+    ...sh.card,
   },
   projStat: { flex: 1, alignItems: 'center', gap: 2 },
   projDivider: { width: 1, backgroundColor: colors.line, marginVertical: 6 },
   projVal: { fontSize: 22, color: colors.ink },
   projListCard: {
     backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 16,
     paddingHorizontal: 14,
     marginTop: 10,
+    ...sh.card,
   },
   miniRow: {
     flexDirection: 'row',

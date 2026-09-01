@@ -1,7 +1,8 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from './themed';
-import { colors, ft } from '../theme';
+import { brandGradient, colors, ft, sh } from '../theme';
 import type { CardExpenseStatus } from '../api/types';
 
 /** 공용 소품 — 터치 영역 최소 44pt, 한국어 존댓말 */
@@ -46,7 +47,7 @@ const STATUS: Record<CardExpenseStatus, { label: string; fg: string; bg: string;
 export function StatusChip({ status }: { status: CardExpenseStatus }) {
   const c = STATUS[status];
   return (
-    <View style={[s.chip, { backgroundColor: c.bg, borderColor: c.border }]}>
+    <View style={[s.chip, { backgroundColor: c.bg }]}>
       <Text style={{ color: c.fg, fontSize: 12, ...ft.bold }}>{c.label}</Text>
     </View>
   );
@@ -70,13 +71,16 @@ export function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={off}
-      style={({ pressed }) => [s.primaryBtn, off && { opacity: 0.45 }, pressed && !off && { opacity: 0.85 }, style]}
+      style={({ pressed }) => [s.primaryWrap, !off && sh.glow, off && { opacity: 0.45 }, pressed && !off && { opacity: 0.85 }, style]}
     >
-      {busy ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={{ color: '#fff', fontSize: 17, ...ft.bold }}>{title}</Text>
-      )}
+      {/* 웹 아바타와 같은 from-brand to-brand-dark 사선 그라데이션 */}
+      <LinearGradient colors={[...brandGradient]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.primaryBtn}>
+        {busy ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={{ color: '#fff', fontSize: 17, ...ft.bold }}>{title}</Text>
+        )}
+      </LinearGradient>
     </Pressable>
   );
 }
@@ -96,22 +100,20 @@ const s = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#fff',
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    ...sh.card,
   },
   chip: {
     alignSelf: 'flex-start',
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
+  primaryWrap: { borderRadius: 14 },
   primaryBtn: {
     minHeight: 52,
     borderRadius: 14,
-    backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './themed';
 import { big, compact } from '../lib/money';
-import { colors, ft, numFont } from '../theme';
+import { colors, ft, numFont, sh } from '../theme';
 
 /**
  * 최근 6개월 매출·영업이익 묶음 막대 — 웹 TrendChart와 같은 시리즈 색.
@@ -105,13 +105,12 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 const s = StyleSheet.create({
   wrap: {
     backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 16,
     padding: 14,
     paddingBottom: 10,
     marginTop: 10,
     gap: 8,
+    ...sh.card,
   },
   legend: { flexDirection: 'row', gap: 14 },
   month: { flex: 1, alignItems: 'center' },

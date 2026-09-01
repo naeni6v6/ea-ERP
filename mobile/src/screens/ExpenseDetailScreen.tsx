@@ -15,7 +15,7 @@ import { PrimaryButton, StatusChip } from '../components/ui';
 import { useOnline } from '../components/OfflineBanner';
 import { won } from '../lib/money';
 import { kstDateTime } from '../lib/dates';
-import { colors, ft, numFont } from '../theme';
+import { colors, ft, numFont, sh } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
@@ -135,42 +135,37 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 const s = StyleSheet.create({
   head: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
+    backgroundColor: colors.card,
+    borderRadius: 20,
     padding: 18,
     gap: 8,
     alignItems: 'flex-start',
+    ...sh.card,
   },
   store: { fontSize: 16, color: colors.inkMute, ...ft.semibold },
   amount: { fontSize: 32, ...ft.extrabold, color: colors.ink },
   rejectBox: {
     backgroundColor: colors.negSoft,
-    borderColor: '#f0c4bc',
-    borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
   },
   infoBox: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
+    backgroundColor: colors.card,
+    borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 4,
+    ...sh.card,
   },
   fieldLabel: { fontSize: 14, ...ft.bold, color: colors.ink },
   memoInput: {
     minHeight: 72,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#fff',
+    borderRadius: 14,
+    backgroundColor: colors.card,
     padding: 12,
     fontSize: 15,
     color: colors.ink,
     textAlignVertical: 'top',
+    ...sh.card,
   },
   footer: {
     position: 'absolute',
@@ -180,7 +175,6 @@ const s = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
     backgroundColor: colors.bg,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
+    ...sh.lift,
   },
 });

@@ -20,7 +20,7 @@ import { DelayedBadge, StatusBadge } from '../components/StatusBadge';
 import { Progress } from '../components/Progress';
 import { ErrorView, Spinner } from '../components/ui';
 import { compact, num } from '../lib/money';
-import { colors, ft, numFont } from '../theme';
+import { colors, ft, numFont, sh } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProjectDetail'>;
@@ -208,11 +208,10 @@ function Info({ label, value }: { label: string; value: string }) {
 const s = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 18,
     padding: 16,
     gap: 8,
+    ...sh.card,
   },
   cardTitle: { fontSize: 14, color: colors.ink, marginBottom: 2 },
   code: { marginLeft: 'auto', fontSize: 12, color: colors.inkFaint },
@@ -226,10 +225,8 @@ const s = StyleSheet.create({
   taskInput: {
     flex: 1,
     minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#fff',
+    borderRadius: 12,
+    backgroundColor: colors.bgSoft,
     paddingHorizontal: 12,
     fontSize: 14,
     color: colors.ink,

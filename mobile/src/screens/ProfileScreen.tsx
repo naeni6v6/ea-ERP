@@ -4,7 +4,7 @@ import { Text } from '../components/themed';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
-import { colors, ft } from '../theme';
+import { colors, ft, sh } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 const ROLE_LABEL: Record<string, string> = { CEO: '대표', ADMIN: '관리자', EMPLOYEE: '직원' };
@@ -65,11 +65,10 @@ export function ProfileScreen() {
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
+    backgroundColor: colors.card,
+    borderRadius: 20,
     padding: 18,
+    ...sh.card,
   },
   name: { fontSize: 20, ...ft.extrabold, color: colors.ink },
   meta: { fontSize: 14, color: colors.inkMute, marginTop: 2 },
@@ -81,15 +80,14 @@ const s = StyleSheet.create({
   },
   tagText: { fontSize: 13, color: colors.inkMute, ...ft.semibold },
   menuRow: {
-    minHeight: 52,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
+    backgroundColor: colors.card,
+    borderRadius: 16,
     paddingHorizontal: 16,
+    ...sh.card,
   },
   menuText: { fontSize: 16, color: colors.ink, ...ft.semibold },
 });

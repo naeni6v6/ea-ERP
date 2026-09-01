@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './themed';
-import { colors, ft, numFont } from '../theme';
+import { colors, ft, numFont, sh } from '../theme';
 import { compact, won, type Money } from '../lib/money';
 
 /** KPI 카드 — 웹과 같은 패턴: 큰 글씨는 억/만 축약, 아래 작은 글씨로 정확한 원 병기 */
@@ -27,11 +27,10 @@ const s = StyleSheet.create({
     flexBasis: '47%',
     flexGrow: 1,
     backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    ...sh.card,
   },
   label: { fontSize: 12.5, color: colors.inkFaint },
   value: { fontSize: 22, marginTop: 3 },

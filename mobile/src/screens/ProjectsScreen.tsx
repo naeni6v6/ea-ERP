@@ -10,7 +10,7 @@ import { DelayedBadge, StatusBadge } from '../components/StatusBadge';
 import { Progress } from '../components/Progress';
 import { Empty, ErrorView, Spinner } from '../components/ui';
 import { num } from '../lib/money';
-import { colors, ft, numFont } from '../theme';
+import { colors, ft, numFont, sh } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 const FILTERS = [
@@ -116,30 +116,25 @@ function MetaRow({ label, value, numeric }: { label: string; value: string; nume
 const s = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: colors.bg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
   },
   filterChip: {
-    minHeight: 34,
+    minHeight: 36,
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#fff',
+    paddingHorizontal: 13,
+    borderRadius: 18,
+    backgroundColor: colors.bgSoft,
   },
-  filterOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  filterOn: { backgroundColor: colors.ink },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 18,
     padding: 15,
     gap: 6,
+    ...sh.card,
   },
   code: { marginLeft: 'auto', fontSize: 12, color: colors.inkFaint },
   name: { fontSize: 16, color: colors.ink },

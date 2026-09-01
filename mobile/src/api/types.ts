@@ -85,6 +85,22 @@ export interface ExpenseList {
   rows: CardExpense[];
 }
 
+/** 은행 입출금 내역 (GET /treasury/bank-transactions — 대표 전용, 웹 lib/types.ts와 동일) */
+export interface BankTransaction {
+  id: string;
+  bankAccountId: string;
+  txnAt: string; // ISO
+  direction: 'IN' | 'OUT';
+  amount: string;
+  counterpartyRaw: string | null;
+  descriptionRaw: string | null;
+  source: string;
+  bankAccount?: { alias: string; bankName: string };
+  classification?: {
+    status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'IGNORED';
+  } | null;
+}
+
 export interface CodeValue {
   id: string;
   kind: string;
