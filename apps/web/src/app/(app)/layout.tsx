@@ -71,6 +71,21 @@ const NAV: NavItem[] = [
 /** 팀 Slack 바로가기 — 주소는 NEXT_PUBLIC_SLACK_URL (기본값은 내 워크스페이스로 리다이렉트되는 app.slack.com) */
 const SLACK_URL = process.env.NEXT_PUBLIC_SLACK_URL ?? 'https://app.slack.com';
 
+/**
+ * 모바일 뷰어 바로가기 — mobile/모바일뷰어_실행.bat 이 띄우는 뷰어 페이지(expo web, 8082 포트).
+ * 뷰어가 꺼져 있으면 열리지 않으므로 링크에 안내를 달아 둔다. 주소는 NEXT_PUBLIC_MOBILE_VIEWER_URL 로 덮어쓴다.
+ */
+const MOBILE_VIEWER_URL = process.env.NEXT_PUBLIC_MOBILE_VIEWER_URL ?? 'http://localhost:8082/viewer.html';
+
+function PhoneMark({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="6" y="2" width="12" height="20" rx="3" />
+      <path d="M10.5 18.5h3" />
+    </svg>
+  );
+}
+
 function SlackMark({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 122.8 122.8" aria-hidden>
@@ -299,8 +314,19 @@ function Shell({ children }: { children: React.ReactNode }) {
 
         </nav>
 
-        {/* 팀 Slack 바로가기 — 프로필은 우측 상단으로 이동해 하단은 이것만 남긴다 */}
-        <div className="border-t border-shell-line px-3 py-3">
+        {/* 하단 바로가기 — 모바일 뷰어(내 PC에서 앱 화면 보기) + 팀 Slack */}
+        <div className="space-y-1.5 border-t border-shell-line px-3 py-3">
+          <a
+            href={MOBILE_VIEWER_URL}
+            target="_blank"
+            rel="noreferrer"
+            title="mobile 폴더의 모바일뷰어_실행.bat 을 먼저 실행해야 열립니다"
+            className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-shell-line px-2.5 py-2 text-xs text-white/75 transition-colors hover:border-white/30 hover:bg-white/5 hover:text-white"
+          >
+            <PhoneMark size={13} />
+            <span className="flex-1 truncate">모바일 뷰어 열기</span>
+            <span className="text-[11px] text-white/40">↗</span>
+          </a>
           <a
             href={SLACK_URL}
             target="_blank"

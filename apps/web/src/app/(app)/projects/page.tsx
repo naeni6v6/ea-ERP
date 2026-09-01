@@ -8,7 +8,7 @@ import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { num, sdate } from '@/lib/format';
 import { ProjectEditModal, ProjectRegisterModal } from '@/components/ProjectModals';
-import { Empty, ErrorBox, Progress, Spinner, StatusBadge } from '@/components/ui';
+import { Empty, ErrorBox, PencilButton, Progress, Spinner, StatusBadge } from '@/components/ui';
 import type { Project } from '@/lib/types';
 
 /**
@@ -80,21 +80,15 @@ export default function ProjectsCardsPage() {
             >
               <div className="flex items-center gap-2">
                 {isAdmin && (
-                  <button
-                    className="-m-1 rounded-md p-1 text-ink-faint transition-colors hover:bg-line-soft hover:text-brand-deep"
+                  <PencilButton
                     title="프로젝트 수정"
-                    aria-label="프로젝트 수정"
                     onClick={(e) => {
                       // 카드 전체가 상세 링크라 — 연필만 눌렀을 땐 이동을 막고 수정창을 연다
                       e.preventDefault();
                       e.stopPropagation();
                       setEditTarget(p);
                     }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                    </svg>
-                  </button>
+                  />
                 )}
                 <StatusBadge status={p.status} label={labelOf('PROJECT_STATUS', p.status)} />
                 {p.isDelayed && <span className="badge bg-red-50 text-neg">지연</span>}

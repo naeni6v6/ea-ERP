@@ -7,7 +7,8 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { compact, num } from '@/lib/format';
-import { Empty, ErrorBox, Progress, Section, Spinner, StatusBadge } from '@/components/ui';
+import { Empty, ErrorBox, PencilButton, Progress, Section, Spinner, StatusBadge } from '@/components/ui';
+import { ProjectEditModal } from '@/components/ProjectModals';
 import type { Project, Task, UserRow } from '@/lib/types';
 
 export function ProjectDetailClient() {
@@ -22,6 +23,7 @@ export function ProjectDetailClient() {
     [isAdmin],
   );
 
+  const [editOpen, setEditOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
   const [newDue, setNewDue] = useState('');
@@ -96,6 +98,7 @@ export function ProjectDetailClient() {
           ← 프로젝트 목록
         </Link>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          {isAdmin && <PencilButton title="프로젝트 수정" onClick={() => setEditOpen(true)} />}
           <span className="font-num text-sm text-ink-faint">{p.code}</span>
           <h1 className="page-title">{p.name}</h1>
           <StatusBadge status={p.status} label={labelOf('PROJECT_STATUS', p.status)} />
@@ -262,6 +265,12 @@ export function ProjectDetailClient() {
           </ul>
         )}
       </Section>
+
+      <ProjectEditModal
+        project={editOpen ? p : null}
+        onClose={() => setEditOpen(false)}
+        onSaved={projRes.reload}
+      />
     </div>
   );
 }

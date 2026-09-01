@@ -4,7 +4,7 @@ import { TreasuryService } from './treasury.service';
 import { PopbillService } from './popbill.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthUser, CurrentUser } from '../common/decorators/current-user.decorator';
-import { BankAccountDto, ImportDto, PlannedDto, PlannedIncomeDto, ReserveDto, ReserveMoveDto, UpdateBankAccountDto, UpdatePlannedDto, UpdatePlannedIncomeDto } from './treasury.dto';
+import { BankAccountDto, ImportDto, PlannedDto, PlannedIncomeDto, ReserveDto, ReserveMoveDto, UpdateBankAccountDto, UpdatePlannedDto, UpdatePlannedIncomeDto, UpdateReserveDto } from './treasury.dto';
 
 /** 회사 전체 자금 정보는 CEO 전용 (Q5 기본 정책). 필요 시 ADMIN에 계좌 단위 scope를 부여하도록 확장. */
 @Controller('treasury')
@@ -31,6 +31,7 @@ export class TreasuryController {
   @Get('reserves') reserves(@CurrentUser() u: AuthUser) { return this.svc.listReserves(u.companyId); }
   @Post('reserves') createReserve(@CurrentUser() u: AuthUser, @Body() d: ReserveDto) { return this.svc.createReserve(u, d); }
   @Post('reserves/:id/move') moveReserve(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: ReserveMoveDto) { return this.svc.moveReserve(u, id, d); }
+  @Patch('reserves/:id') updateReserve(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: UpdateReserveDto) { return this.svc.updateReserve(u, id, d); }
 
   // 입금 예정(들어올 돈) — 자금 달력에서 잔금일 기준 등록
   @Get('planned-incomes') plannedIncomes(@CurrentUser() u: AuthUser, @Query() q: any) { return this.svc.listPlannedIncome(u.companyId, q); }

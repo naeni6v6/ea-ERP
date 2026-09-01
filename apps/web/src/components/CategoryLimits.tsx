@@ -6,7 +6,7 @@ import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { big, num, seoulYmd, thisMonthSeoul } from '@/lib/format';
 import { MoneyInput } from '@/components/MoneyInput';
-import { ErrorBox, Section, Spinner } from '@/components/ui';
+import { ErrorBox, PencilButton, Section, Spinner } from '@/components/ui';
 import type { CardExpenseList } from '@/lib/types';
 
 /**
@@ -132,17 +132,15 @@ export function CategoryLimitsSection() {
 
   return (
     <Section
-      title={`${month}월 항목별 지출 한도`}
-      desc={`항목별 한도 대비 ${month}월 카드지출 사용액과 남은 금액입니다. 한도 금액은 [한도 수정]에서 언제든 바꿀 수 있습니다.${
+      title={
+        <span className="flex items-center gap-1.5">
+          {!editing && <PencilButton title="한도 수정" onClick={startEdit} />}
+          {month}월 항목별 지출 한도
+        </span>
+      }
+      desc={`항목별 한도 대비 ${month}월 카드지출 사용액과 남은 금액입니다. 한도 금액은 좌측 연필 버튼으로 언제든 바꿀 수 있습니다.${
         showYm !== thisMonth ? ' (이번 달 지출이 아직 없어 지난달 사용액을 보여줍니다)' : ''
       }`}
-      right={
-        !editing && (
-          <button className="btn-ghost" onClick={startEdit}>
-            ✎ 한도 수정
-          </button>
-        )
-      }
     >
       {editing ? (
         <div className="p-4">
@@ -180,7 +178,7 @@ export function CategoryLimitsSection() {
         <ErrorBox message={res.error} onRetry={res.reload} />
       ) : viewRows.length === 0 ? (
         <div className="py-10 text-center text-sm text-ink-faint">
-          아직 이번 달 지출과 설정된 한도가 없습니다. 우측 상단 [한도 수정]에서 항목별 한도를 넣어보세요.
+          아직 이번 달 지출과 설정된 한도가 없습니다. 제목 왼쪽 연필 버튼으로 항목별 한도를 넣어보세요.
         </div>
       ) : (
         <div className="overflow-x-auto">

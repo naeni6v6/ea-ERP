@@ -9,7 +9,7 @@ import { CategoryLimitsSection } from '@/components/CategoryLimits';
 import { EntryFormModal } from '@/components/EntryFormModal';
 import { MoneyInput } from '@/components/MoneyInput';
 import { PopbillPanel } from '@/components/PopbillPanel';
-import { Empty, ErrorBox, Field, Kpi, Modal, Section, Spinner, StatusBadge } from '@/components/ui';
+import { Empty, ErrorBox, Field, Kpi, Modal, PencilButton, Section, Spinner, StatusBadge } from '@/components/ui';
 import type {
   BankAccount,
   BankTransaction,
@@ -202,6 +202,39 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
     setModalDate(date);
   };
 
+  /** 입금 예정 수정 — 달력 상세의 연필 버튼 */
+  const [editIncome, setEditIncome] = useState<PlannedIncome | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editDate, setEditDate] = useState('');
+
+  const openEditIncome = (p: PlannedIncome) => {
+    setEditIncome(p);
+    setEditTitle(p.title);
+    setEditAmount(p.amount);
+    setEditDate(p.dueDate.slice(0, 10));
+    setError('');
+  };
+
+  const saveIncome = async () => {
+    if (!editIncome) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.patch(`/treasury/planned-incomes/${editIncome.id}`, {
+        title: editTitle.trim(),
+        amount: editAmount,
+        dueDate: editDate,
+      });
+      setEditIncome(null);
+      reloadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '수정에 실패했습니다');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const cancelIncome = async (id: string) => {
     setBusy(true);
     setError('');
@@ -350,8 +383,9 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
               ))}
               {dayIncomes.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="truncate text-ink-soft">
-                    들어올 예정 · {p.title}
+                  <span className="flex min-w-0 items-center gap-1 text-ink-soft">
+                    <PencilButton title="입금 예정 수정" onClick={() => openEditIncome(p)} />
+                    <span className="truncate">들어올 예정 · {p.title}</span>
                   </span>
                   <span className="flex items-center gap-2">
                     <span className="font-num font-medium text-emerald-600">+{num(p.amount)}원</span>
@@ -396,6 +430,38 @@ function CashCalendar({ onChanged }: { onChanged: () => void }) {
           </div>
         )}
       </div>
+
+      {/* 입금 예정 수정 — 달력 상세의 연필 버튼 */}
+      <Modal
+        open={!!editIncome}
+        title="입금 예정 수정"
+        onClose={() => setEditIncome(null)}
+      >
+        <div className="space-y-3">
+          <Field label="내용" required>
+            <input className="input" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} disabled={busy} />
+          </Field>
+          <Field label="금액" required>
+            <MoneyInput value={editAmount} onChange={setEditAmount} disabled={busy} />
+          </Field>
+          <Field label="입금일" required>
+            <input type="date" className="input" value={editDate} onChange={(e) => setEditDate(e.target.value)} disabled={busy} />
+          </Field>
+          {error && <p className="text-xs text-neg">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button className="btn-ghost" onClick={() => setEditIncome(null)} disabled={busy}>
+              취소
+            </button>
+            <button
+              className="btn-primary"
+              onClick={saveIncome}
+              disabled={busy || !editTitle.trim() || !editAmount || !editDate}
+            >
+              {busy ? '저장 중…' : '저장'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* 날짜 더블클릭 — 입금 예정 등록 팝업 */}
       <Modal
@@ -443,6 +509,8 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
   const { departments } = useSession();
   const res = useAsync(() => api.get<BankAccount[]>('/treasury/bank-accounts'), []);
   const [open, setOpen] = useState(false);
+  /** 수정 대상 계좌 id — null이면 신규 등록 */
+  const [editId, setEditId] = useState<string | null>(null);
   const [bankName, setBankName] = useState('');
   const [alias, setAlias] = useState('');
   const [accountNoMasked, setAccountNoMasked] = useState('');
@@ -453,11 +521,37 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const openCreate = () => {
+    setEditId(null);
+    setBankName('');
+    setAlias('');
+    setAccountNoMasked('');
+    setDepartmentId('');
+    setIsRestricted(false);
+    setOpeningBalance('');
+    setOpeningDate('');
+    setError('');
+    setOpen(true);
+  };
+
+  const openEdit = (a: BankAccount) => {
+    setEditId(a.id);
+    setBankName(a.bankName);
+    setAlias(a.alias);
+    setAccountNoMasked(a.accountNoMasked ?? '');
+    setDepartmentId(a.departmentId ?? '');
+    setIsRestricted(a.isRestricted);
+    setOpeningBalance(a.openingBalance);
+    setOpeningDate(a.openingDate?.slice(0, 10) ?? '');
+    setError('');
+    setOpen(true);
+  };
+
   const submit = async () => {
     setBusy(true);
     setError('');
     try {
-      await api.post('/treasury/bank-accounts', {
+      const body = {
         bankName,
         alias,
         accountNoMasked: accountNoMasked || undefined,
@@ -465,16 +559,14 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
         isRestricted,
         openingBalance: openingBalance || '0',
         openingDate: openingDate || undefined,
-      });
+      };
+      if (editId) await api.patch(`/treasury/bank-accounts/${editId}`, body);
+      else await api.post('/treasury/bank-accounts', body);
       setOpen(false);
-      setBankName('');
-      setAlias('');
-      setAccountNoMasked('');
-      setOpeningBalance('');
       res.reload();
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '계좌 등록에 실패했습니다');
+      setError(e instanceof Error ? e.message : editId ? '계좌 수정에 실패했습니다' : '계좌 등록에 실패했습니다');
     } finally {
       setBusy(false);
     }
@@ -486,7 +578,7 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
         title="계좌 잔액"
         desc="잔액 = 기초잔액 + 입금 − 출금 (은행거래 원본 기준)"
         right={
-          <button className="btn-ghost" onClick={() => setOpen(true)}>
+          <button className="btn-ghost" onClick={openCreate}>
             + 계좌 추가
           </button>
         }
@@ -500,6 +592,7 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
             <table className="w-full">
               <thead className="border-b border-line-soft">
                 <tr>
+                  <th className="th w-8" />
                   <th className="th">계좌명</th>
                   <th className="th">은행</th>
                   <th className="th">계좌번호</th>
@@ -512,6 +605,9 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
               <tbody className="divide-y divide-line-soft">
                 {(res.data ?? []).map((a) => (
                   <tr key={a.id} className="hover:bg-line-soft/60">
+                    <td className="td !pr-0">
+                      <PencilButton title="계좌 수정" onClick={() => openEdit(a)} />
+                    </td>
                     <td className="td font-medium">
                       {a.alias}
                       {a.isRestricted && <span className="badge ml-1.5 bg-amber-50 text-warn">제한</span>}
@@ -530,7 +626,7 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
         )}
       </Section>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="계좌 추가" wide>
+      <Modal open={open} onClose={() => setOpen(false)} title={editId ? '계좌 수정' : '계좌 추가'} wide>
         <div className="space-y-3.5">
           <div className="grid grid-cols-3 gap-3">
             <Field label="은행" required>
@@ -594,7 +690,7 @@ function AccountsTab({ onChanged }: { onChanged: () => void }) {
               취소
             </button>
             <button className="btn-primary" onClick={submit} disabled={busy || !bankName || !alias}>
-              {busy ? '저장 중…' : '추가'}
+              {busy ? '저장 중…' : editId ? '저장' : '추가'}
             </button>
           </div>
         </div>
@@ -874,6 +970,34 @@ function ReservesTab({ onChanged }: { onChanged: () => void }) {
   const [moveAmount, setMoveAmount] = useState('');
   const [moveReason, setMoveReason] = useState('');
 
+  /** 분류·목적 수정 — 금액은 감사이력이 남는 증액/해제로만 */
+  const [edit, setEdit] = useState<Reserve | null>(null);
+  const [editCategory, setEditCategory] = useState('');
+  const [editPurpose, setEditPurpose] = useState('');
+
+  const openEdit = (r: Reserve) => {
+    setEdit(r);
+    setEditCategory(r.category);
+    setEditPurpose(r.purpose);
+    setError('');
+  };
+
+  const saveEdit = async () => {
+    if (!edit) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.patch(`/treasury/reserves/${edit.id}`, { category: editCategory, purpose: editPurpose });
+      setEdit(null);
+      res.reload();
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '수정에 실패했습니다');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const create = async () => {
     setBusy(true);
     setError('');
@@ -936,6 +1060,7 @@ function ReservesTab({ onChanged }: { onChanged: () => void }) {
             {res.data.map((r) => (
               <li key={r.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
+                  <PencilButton title="유보금 수정" onClick={() => openEdit(r)} />
                   <span className="badge bg-brand-soft text-brand-deep">
                     {labelOf('RESERVE_CATEGORY', r.category)}
                   </span>
@@ -1013,6 +1138,37 @@ function ReservesTab({ onChanged }: { onChanged: () => void }) {
       </Modal>
 
       <Modal
+        open={!!edit}
+        onClose={() => setEdit(null)}
+        title="유보금 수정"
+        desc="금액은 이력이 남도록 [증액] · [해제] 버튼으로 바꿔주세요"
+      >
+        <div className="space-y-3.5">
+          <Field label="분류" required>
+            <select className="input" value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+              {codesOf('RESERVE_CATEGORY').map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="목적" required>
+            <input className="input" value={editPurpose} onChange={(e) => setEditPurpose(e.target.value)} />
+          </Field>
+          {error && <div className="text-sm text-neg">{error}</div>}
+          <div className="flex justify-end gap-2 border-t border-line pt-3">
+            <button className="btn-ghost" onClick={() => setEdit(null)}>
+              취소
+            </button>
+            <button className="btn-primary" onClick={saveEdit} disabled={busy || !editPurpose.trim()}>
+              {busy ? '저장 중…' : '저장'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
         open={!!move}
         onClose={() => setMove(null)}
         title={move?.type === 'RELEASE' ? '유보금 해제' : '유보금 증액'}
@@ -1060,6 +1216,8 @@ function PlannedTab({ onChanged }: { onChanged: () => void }) {
   const { codesOf, labelOf, departments } = useSession();
   const res = useAsync(() => api.get<PlannedPayment[]>('/treasury/planned-payments'), []);
   const [open, setOpen] = useState(false);
+  /** 수정 대상 id — null이면 신규 등록 */
+  const [editId, setEditId] = useState<string | null>(null);
   const [kind, setKind] = useState<'CONFIRMED' | 'PLANNED'>('CONFIRMED');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -1069,26 +1227,49 @@ function PlannedTab({ onChanged }: { onChanged: () => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const openCreate = () => {
+    setEditId(null);
+    setKind('CONFIRMED');
+    setTitle('');
+    setCategory('');
+    setAmount('');
+    setDueDate('');
+    setDepartmentId('');
+    setError('');
+    setOpen(true);
+  };
+
+  const openEdit = (p: PlannedPayment) => {
+    setEditId(p.id);
+    setKind(p.kind);
+    setTitle(p.title);
+    setCategory(p.category ?? '');
+    setAmount(p.amount);
+    setDueDate(p.dueDate.slice(0, 10));
+    setDepartmentId('');
+    setError('');
+    setOpen(true);
+  };
+
   const create = async () => {
     setBusy(true);
     setError('');
     try {
-      await api.post('/treasury/planned-payments', {
+      const body = {
         kind,
         title,
         category: category || undefined,
         amount,
         dueDate,
         departmentId: departmentId || undefined,
-      });
+      };
+      if (editId) await api.patch(`/treasury/planned-payments/${editId}`, body);
+      else await api.post('/treasury/planned-payments', body);
       setOpen(false);
-      setTitle('');
-      setAmount('');
-      setDueDate('');
       res.reload();
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '등록에 실패했습니다');
+      setError(e instanceof Error ? e.message : editId ? '수정에 실패했습니다' : '등록에 실패했습니다');
     } finally {
       setBusy(false);
     }
@@ -1110,7 +1291,7 @@ function PlannedTab({ onChanged }: { onChanged: () => void }) {
         title="지급예정자금"
         desc="확정(CONFIRMED)만 가용현금에서 차감됩니다. 계획(PLANNED)은 예측에만 반영됩니다"
         right={
-          <button className="btn-ghost" onClick={() => setOpen(true)}>
+          <button className="btn-ghost" onClick={openCreate}>
             + 지급예정 등록
           </button>
         }
@@ -1127,6 +1308,7 @@ function PlannedTab({ onChanged }: { onChanged: () => void }) {
             <table className="w-full">
               <thead className="border-b border-line-soft">
                 <tr>
+                  <th className="th w-8" />
                   <th className="th">지급일</th>
                   <th className="th">구분</th>
                   <th className="th">항목</th>
@@ -1139,6 +1321,9 @@ function PlannedTab({ onChanged }: { onChanged: () => void }) {
               <tbody className="divide-y divide-line-soft">
                 {res.data.map((p) => (
                   <tr key={p.id} className="hover:bg-line-soft/60">
+                    <td className="td !pr-0">
+                      <PencilButton title="지급예정 수정" onClick={() => openEdit(p)} />
+                    </td>
                     <td className="td font-num text-xs">{p.dueDate.slice(0, 10)}</td>
                     <td className="td">
                       <StatusBadge
@@ -1167,7 +1352,7 @@ function PlannedTab({ onChanged }: { onChanged: () => void }) {
         )}
       </Section>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="지급예정 등록" wide>
+      <Modal open={open} onClose={() => setOpen(false)} title={editId ? '지급예정 수정' : '지급예정 등록'} wide>
         <div className="space-y-3.5">
           <div className="grid grid-cols-3 gap-3">
             <Field label="구분" required>
@@ -1233,7 +1418,7 @@ function PlannedTab({ onChanged }: { onChanged: () => void }) {
               onClick={create}
               disabled={busy || !title || !amount || !dueDate}
             >
-              등록
+              {busy ? '저장 중…' : editId ? '저장' : '등록'}
             </button>
           </div>
         </div>

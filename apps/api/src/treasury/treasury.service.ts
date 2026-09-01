@@ -114,6 +114,19 @@ export class TreasuryService {
     return after;
   }
 
+  /** 분류·목적·메모 수정 — 금액은 감사이력이 남는 증액/해제(move)로만 바꾼다 */
+  async updateReserve(u: AuthUser, id: string, d: { category?: string; purpose?: string; memo?: string }) {
+    const r = await this.prisma.cashReserve.findFirst({ where: { id, companyId: u.companyId } });
+    if (!r) throw new NotFoundException();
+    const after = await this.prisma.cashReserve.update({
+      where: { id },
+      data: { category: d.category ?? undefined, purpose: d.purpose ?? undefined, memo: d.memo ?? undefined },
+      include: { movements: true },
+    });
+    await this.audit.log({ companyId: u.companyId, actorId: u.id, entity: 'CashReserve', entityId: id, action: 'RESERVE_UPDATE', before: { category: r.category, purpose: r.purpose }, after: { category: after.category, purpose: after.purpose } });
+    return after;
+  }
+
   // ───── 지급예정자금 ─────
   // ───── 입금 예정 (들어올 돈 — 자금 달력) ─────
   listPlannedIncome(cid: string, q: { status?: string; from?: string; to?: string }) {
