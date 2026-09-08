@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
-import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { big, num, seoulYmd, thisMonthSeoul } from '@/lib/format';
 import { MoneyInput } from '@/components/MoneyInput';
 import { ErrorBox, PencilButton, Section, Spinner } from '@/components/ui';
+import { usePurposeOptions } from '@/components/PurposeSelect';
 import type { CardExpenseList } from '@/lib/types';
 
 /**
@@ -16,13 +16,6 @@ import type { CardExpenseList } from '@/lib/types';
  */
 
 const STORAGE_KEY = 'ea_erp_category_limits';
-
-/** 카드지출 용도 기본 목록 — 설정의 코드값(CARD_PURPOSE)이 없을 때 사용 (카드지출 화면과 동일) */
-const DEFAULT_PURPOSES = [
-  '식비', '회식비', '업무교통비', '야근교통비', '국내출장비', '국외출장비', '접대비',
-  '유류비', '교육훈련비', '도서구입비', '정기구독료', '회의비', '사무용품비', '소모품비',
-  'IT솔루션', '서류발급비', '온라인 마케팅', '광고비', '판촉물제작비', '기타비용', '오사용',
-];
 
 const loadLimits = (): Record<string, string> => {
   try {
@@ -67,7 +60,6 @@ const hasMonth = (list: CardExpenseList | null, ym: string) =>
   (list?.rows ?? []).some((e) => seoulYmd(e.usedAt).slice(0, 7) === ym);
 
 export function CategoryLimitsSection() {
-  const { codesOf } = useSession();
   const thisMonth = thisMonthSeoul();
 
   // 이번 달 지출이 아직 없으면(월초 등) 지난달 사용액을 대신 보여준다
@@ -87,8 +79,8 @@ export function CategoryLimitsSection() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   useEffect(() => setLimits(loadLimits()), []);
 
-  const fromCodes = codesOf('CARD_PURPOSE').map((c) => c.label);
-  const purposes = fromCodes.length ? fromCodes : DEFAULT_PURPOSES;
+  // 용도 목록은 카드 지출 화면과 같은 것을 쓴다 (설정 코드값 → 기본 목록)
+  const purposes = usePurposeOptions();
 
   const showYm = res.data?.ym ?? thisMonth;
 
@@ -138,7 +130,7 @@ export function CategoryLimitsSection() {
           {month}월 항목별 지출 한도
         </span>
       }
-      desc={`항목별 한도 대비 ${month}월 카드지출 사용액과 남은 금액입니다. 한도 금액은 좌측 연필 버튼으로 언제든 바꿀 수 있습니다.${
+      desc={`항목별 한도 대비 ${month}월 카드 지출 사용액과 남은 금액입니다. 한도 금액은 좌측 연필 버튼으로 언제든 바꿀 수 있습니다.${
         showYm !== thisMonth ? ' (이번 달 지출이 아직 없어 지난달 사용액을 보여줍니다)' : ''
       }`}
     >

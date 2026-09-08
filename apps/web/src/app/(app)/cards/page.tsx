@@ -8,6 +8,7 @@ import { big, dateTime, num, thisMonthSeoul } from '@/lib/format';
 import { CardBrandMark } from '@/components/CardBrand';
 import { CardUsage } from '@/components/CardUsage';
 import { MoneyInput } from '@/components/MoneyInput';
+import { PurposeSelect } from '@/components/PurposeSelect';
 import { Empty, ErrorBox, Field, Modal, Section, Spinner } from '@/components/ui';
 import type { Account, BankAccount, CardExpense, CardExpenseList, CardExpenseStatus, CorporateCard, Project, UserRow } from '@/lib/types';
 
@@ -43,42 +44,6 @@ function StatusChip({ status }: { status: CardExpenseStatus }) {
     <span className={`inline-block whitespace-nowrap rounded-md border px-2 py-0.5 text-[15px] font-semibold ${STATUS_CHIP[status]}`}>
       {STATUS_BADGE[status].label}
     </span>
-  );
-}
-
-/**
- * 지출 용도 고정 목록 — 수기 입력 대신 체크(선택). 설정의 코드값(CARD_PURPOSE)으로 관리하고,
- * 코드값이 아직 없으면 아래 기본 목록을 쓴다.
- */
-const DEFAULT_PURPOSES = [
-  '식비', '회식비', '업무교통비', '야근교통비', '국내출장비', '국외출장비', '접대비',
-  '유류비', '교육훈련비', '도서구입비', '정기구독료', '회의비', '사무용품비', '소모품비',
-  'IT솔루션', '서류발급비', '온라인 마케팅', '광고비', '판촉물제작비', '기타비용', '오사용',
-];
-
-function PurposeSelect({
-  value,
-  onChange,
-  className,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  className?: string;
-}) {
-  const { codesOf } = useSession();
-  const fromCodes = codesOf('CARD_PURPOSE').map((c) => c.label);
-  const options = fromCodes.length ? fromCodes : DEFAULT_PURPOSES;
-  return (
-    <select className={className ?? 'input'} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">용도 선택</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-      {/* 목록 도입 전에 직접 입력했던 값은 그대로 보이게 유지 */}
-      {value && !options.includes(value) && <option value={value}>{value}</option>}
-    </select>
   );
 }
 
@@ -139,7 +104,7 @@ export default function CardsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="page-title">카드지출</h1>
+        <h1 className="page-title">카드 지출</h1>
         {s && (
           <div className="text-[17px] text-ink-mute">
             총 이용 금액 <span className="font-num text-base font-bold text-ink">{num(s.all.amount)}원</span>
@@ -779,7 +744,7 @@ function AddExpenseModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="카드지출 수동 등록"
+      title="카드 지출 수동 등록"
       desc="자동 수집 전이거나 수집에서 빠진 건을 직접 기록합니다"
     >
       <div className="space-y-3.5">
@@ -851,7 +816,7 @@ function CardMaster({
         `/cards/${c.id}/derive-from-bank`,
         {},
       );
-      setNotice(`${c.name}: 출금 ${r.scanned}건 중 ${r.created}건을 카드지출로 가져왔습니다 (중복 ${r.skipped}건 제외)`);
+      setNotice(`${c.name}: 출금 ${r.scanned}건 중 ${r.created}건을 카드 지출로 가져왔습니다 (중복 ${r.skipped}건 제외)`);
       onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : '가져오기에 실패했습니다');
@@ -1060,7 +1025,7 @@ function CardFormModal({
             </select>
           </Field>
           {cardType === 'CHECK' && (
-            <Field label="결제계좌" hint="이 계좌의 출금을 카드지출로 가져옵니다">
+            <Field label="결제계좌" hint="이 계좌의 출금을 카드 지출로 가져옵니다">
               <select className="input" value={bankAccountId} onChange={(e) => setBankAccountId(e.target.value)}>
                 <option value="">선택하세요</option>
                 {(accRes.data ?? []).map((a) => (

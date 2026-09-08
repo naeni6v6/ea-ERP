@@ -495,6 +495,10 @@ model BankTransaction {
   importBatchId   String?
   externalId      String?
   createdAt       DateTime     @default(now())
+  purposeText     String? // 용도 — 카드 지출과 같은 용도 목록(CARD_PURPOSE)에서 선택
+  memo            String? // 메모 — 자유 비고 (용도와 별개)
+  purposeById     String? // 용도 입력자
+  purposeAt       DateTime?
 
   bankAccount    BankAccount            @relation(fields: [bankAccountId], references: [id])
   classification BankTxnClassification?

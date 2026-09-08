@@ -49,8 +49,8 @@ const NAV: NavItem[] = [
     label: '지출',
     show: () => true,
     children: [
-      { href: '/expenses/account', label: '계좌', mobileLabel: '계좌지출', show: (s) => s.isCeo },
-      { href: '/cards', label: '카드', mobileLabel: '카드지출', show: () => true },
+      { href: '/expenses/account', label: '계좌', mobileLabel: '계좌 지출', show: (s) => s.isCeo },
+      { href: '/cards', label: '카드', mobileLabel: '카드 지출', show: () => true },
     ],
   },
   { href: '/my', label: '내 업무', show: () => true },
@@ -162,7 +162,7 @@ function ApprovalBell() {
               onClick={() => setOpen(false)}
               className="block border-t border-line bg-line-soft/40 px-4 py-2.5 text-center text-xs font-semibold text-brand-deep hover:bg-line-soft"
             >
-              카드지출에서 승인하기 →
+              카드 지출에서 승인하기 →
             </Link>
           </div>
         </>

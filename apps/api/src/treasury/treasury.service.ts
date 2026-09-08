@@ -6,7 +6,7 @@ import { AuditService } from '../common/audit/audit.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { won } from '../common/money';
 import { toDateOnly, todaySeoul } from '../common/dates';
-import { BankAccountDto, ImportDto, PlannedDto, ReserveDto, ReserveMoveDto } from './treasury.dto';
+import { BankAccountDto, BankTxnPurposeDto, ImportDto, PlannedDto, ReserveDto, ReserveMoveDto } from './treasury.dto';
 
 @Injectable()
 export class TreasuryService {
@@ -92,6 +92,26 @@ export class TreasuryService {
     await this.prisma.bankTxnClassification.update({ where: { bankTransactionId: id }, data: { status: 'IGNORED', classifiedById: u.id, classifiedAt: new Date() } });
     await this.audit.log({ companyId: u.companyId, actorId: u.id, entity: 'BankTransaction', entityId: id, action: 'IGNORE', reason });
     return { ok: true };
+  }
+  /** 계좌 거래 용도·메모 — 카드 지출의 용도 분류와 같은 목록에서 고른다. 원본(일시·금액·내용)은 건드리지 않는다 */
+  async setTransactionPurpose(u: AuthUser, id: string, d: BankTxnPurposeDto) {
+    const before = await this.prisma.bankTransaction.findFirst({ where: { id, bankAccount: { companyId: u.companyId } } });
+    if (!before) throw new NotFoundException('거래 없음');
+    const data: Prisma.BankTransactionUpdateInput = {};
+    if (d.purposeText !== undefined) {
+      const p = d.purposeText.trim() || null;
+      Object.assign(data, { purposeText: p, purposeById: p ? u.id : null, purposeAt: p ? new Date() : null });
+    }
+    if (d.memo !== undefined) data.memo = d.memo.trim() || null;
+    const after = await this.prisma.bankTransaction.update({
+      where: { id }, data,
+      include: { bankAccount: { select: { alias: true, bankName: true } }, classification: { include: { journalEntry: { select: { id: true, entryNo: true, type: true, memo: true } } } } },
+    });
+    await this.audit.log({
+      companyId: u.companyId, actorId: u.id, entity: 'BankTransaction', entityId: id, action: 'PURPOSE',
+      before: { purposeText: before.purposeText, memo: before.memo }, after: { purposeText: after.purposeText, memo: after.memo },
+    });
+    return after;
   }
 
   // ───── 경영유보금 (관리지표) ─────

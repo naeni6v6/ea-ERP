@@ -7,25 +7,36 @@ import { useFilters } from '@/lib/filters';
 import { resolveRange } from '@/lib/dateRange';
 import { useAsync } from '@/lib/useAsync';
 import { big, dateTime, num, sdate } from '@/lib/format';
+import { PurposeSelect } from '@/components/PurposeSelect';
 import { Empty, ErrorBox, Section, Spinner, StatusBadge } from '@/components/ui';
 import type { BankAccount, BankTransaction } from '@/lib/types';
 
 /**
  * 지출 > 계좌 — 은행 계좌 입출금 내역. 기본은 출금(지출)만 보여주고,
  * 계좌·방향 필터로 좁혀 본다. 자금 정보라서 대표 전용.
+ * 출금 건은 카드 지출과 같은 용도 목록(식비·급여비·프로젝트비 등)으로 분류할 수 있다 — 고르면 바로 저장.
  */
 interface PopbillSyncResult {
   accounts: number;
   results: { alias?: string; total?: number; inserted?: number; skipped?: number; error?: string }[];
 }
 
+type PurposePatch = { purposeText: string | null; memo: string | null };
+
 export default function AccountExpensesPage() {
   const { isCeo } = useSession();
   const [direction, setDirection] = useState<'OUT' | 'IN' | ''>('');
   const [accountId, setAccountId] = useState('');
+  const [purposeFilter, setPurposeFilter] = useState<'' | 'NONE' | 'SET'>('');
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncNotice, setSyncNotice] = useState('');
   const [syncError, setSyncError] = useState('');
+
+  // 용도·메모 저장 결과를 로컬에 덮어써서 목록 전체를 다시 불러오지 않는다
+  const [patched, setPatched] = useState<Record<string, PurposePatch>>({});
+  const [memoDrafts, setMemoDrafts] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState('');
 
   // 상단 전역 필터의 기간을 그대로 쓴다 — 고르는 즉시 반영, [검색]은 강제 재조회
   const filters = useFilters();
@@ -54,9 +65,45 @@ export default function AccountExpensesPage() {
       </div>
     );
 
-  const rows = res.data ?? [];
+  const allRows: BankTransaction[] = (res.data ?? []).map((t) => (patched[t.id] ? { ...t, ...patched[t.id] } : t));
+  const rows = allRows.filter((t) => {
+    if (purposeFilter === 'NONE') return t.direction === 'OUT' && !t.purposeText;
+    if (purposeFilter === 'SET') return !!t.purposeText;
+    return true;
+  });
   const outSum = rows.filter((t) => t.direction === 'OUT').reduce((a, t) => a + big(t.amount), 0n);
   const inSum = rows.filter((t) => t.direction === 'IN').reduce((a, t) => a + big(t.amount), 0n);
+  const unclassifiedOut = allRows.filter((t) => t.direction === 'OUT' && !t.purposeText).length;
+
+  /** 용도·메모 저장 — 원본(일시·금액·내용)은 그대로, 분류만 붙인다 */
+  const savePurpose = async (t: BankTransaction, body: { purposeText?: string; memo?: string }) => {
+    setBusyId(t.id);
+    setSaveError('');
+    try {
+      const r = await api.patch<BankTransaction>(`/treasury/bank-transactions/${t.id}/purpose`, body);
+      setPatched((prev) => ({ ...prev, [t.id]: { purposeText: r.purposeText ?? null, memo: r.memo ?? null } }));
+      setMemoDrafts((prev) => {
+        const { [t.id]: _drop, ...rest } = prev;
+        return rest;
+      });
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : '저장에 실패했습니다');
+    } finally {
+      setBusyId(null);
+    }
+  };
+  const memoOf = (t: BankTransaction) => memoDrafts[t.id] ?? t.memo ?? '';
+  const commitMemo = (t: BankTransaction) => {
+    const v = memoOf(t);
+    if (v.trim() === (t.memo ?? '').trim()) {
+      setMemoDrafts((prev) => {
+        const { [t.id]: _drop, ...rest } = prev;
+        return rest;
+      });
+      return;
+    }
+    void savePurpose(t, { memo: v });
+  };
 
   /**
    * 은행에서 최신 입출금을 즉시 당겨온다 (팝빌 계좌조회).
@@ -110,6 +157,9 @@ export default function AccountExpensesPage() {
                 · 입금 합계 <b className="font-num text-pos">{num(inSum)}원</b>
               </span>
             )}
+            {unclassifiedOut > 0 && (
+              <span className="text-warn"> · 용도 미지정 출금 {unclassifiedOut}건</span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -129,6 +179,16 @@ export default function AccountExpensesPage() {
             <option value="">입·출금 전체</option>
             <option value="OUT">출금만</option>
             <option value="IN">입금만</option>
+          </select>
+          <select
+            className="input w-36"
+            value={purposeFilter}
+            onChange={(e) => setPurposeFilter(e.target.value as '' | 'NONE' | 'SET')}
+            title="용도 지정 여부로 좁혀 봅니다"
+          >
+            <option value="">용도 전체</option>
+            <option value="NONE">용도 미지정만</option>
+            <option value="SET">용도 지정됨만</option>
           </select>
           <button
             className="btn-primary whitespace-nowrap"
@@ -152,8 +212,14 @@ export default function AccountExpensesPage() {
       {syncError && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-neg">{syncError}</div>
       )}
+      {saveError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-neg">용도 저장 실패: {saveError}</div>
+      )}
 
-      <Section title="내역" desc="거래 분류(장부 반영)는 자금 → 거래 인박스에서 처리합니다">
+      <Section
+        title="내역"
+        desc="출금 건은 용도를 고르면 바로 저장됩니다 (카드 지출과 같은 목록). 장부 반영(분개)은 자금 → 거래 인박스에서 처리합니다"
+      >
         {res.loading && !res.data ? (
           <Spinner />
         ) : res.error ? (
@@ -170,14 +236,16 @@ export default function AccountExpensesPage() {
                   <th className="th">내용</th>
                   <th className="th">구분</th>
                   <th className="th text-right">금액</th>
-                  <th className="th">분류</th>
+                  <th className="th">용도</th>
+                  <th className="th">메모</th>
+                  <th className="th">장부 분류</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-soft">
                 {rows.map((t) => (
-                  <tr key={t.id} className="hover:bg-line-soft/60">
-                    <td className="td font-num text-xs text-ink-mute">{dateTime(t.txnAt)}</td>
-                    <td className="td text-xs text-ink-mute">
+                  <tr key={t.id} className="align-middle hover:bg-line-soft/60">
+                    <td className="td whitespace-nowrap font-num text-xs text-ink-mute">{dateTime(t.txnAt)}</td>
+                    <td className="td whitespace-nowrap text-xs text-ink-mute">
                       {t.bankAccount?.alias ?? '—'}
                       {t.bankAccount?.bankName && (
                         <span className="ml-1 text-ink-faint">· {t.bankAccount.bankName}</span>
@@ -191,9 +259,34 @@ export default function AccountExpensesPage() {
                         {t.direction === 'OUT' ? '출금' : '입금'}
                       </span>
                     </td>
-                    <td className={`td-num font-medium ${t.direction === 'OUT' ? 'text-neg' : 'text-pos'}`}>
+                    <td className={`td-num whitespace-nowrap font-medium ${t.direction === 'OUT' ? 'text-neg' : 'text-pos'}`}>
                       {t.direction === 'OUT' ? '-' : '+'}
                       {num(t.amount)}
+                    </td>
+                    <td className="td min-w-[170px]">
+                      {t.direction === 'OUT' ? (
+                        <PurposeSelect
+                          className={`input w-full !py-1.5 text-sm ${!t.purposeText ? 'border-amber-300' : ''}`}
+                          value={t.purposeText ?? ''}
+                          disabled={busyId === t.id}
+                          onChange={(v) => void savePurpose(t, { purposeText: v })}
+                        />
+                      ) : (
+                        <span className="text-ink-faint">—</span>
+                      )}
+                    </td>
+                    <td className="td min-w-[150px]">
+                      <input
+                        className="input w-full !py-1.5 text-sm"
+                        placeholder="메모 입력"
+                        value={memoOf(t)}
+                        disabled={busyId === t.id}
+                        onChange={(ev) => setMemoDrafts((prev) => ({ ...prev, [t.id]: ev.target.value }))}
+                        onBlur={() => commitMemo(t)}
+                        onKeyDown={(ev) => {
+                          if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
+                        }}
+                      />
                     </td>
                     <td className="td">
                       {t.classification ? (

@@ -329,7 +329,7 @@ export default function ExpensesDashboardPage() {
         <Kpi
           label="이번 달 카드 사용액"
           value={cur.card}
-          sub={<Link href="/cards" className="text-brand-deep hover:underline">카드지출 관리 →</Link>}
+          sub={<Link href="/cards" className="text-brand-deep hover:underline">카드 지출 관리 →</Link>}
         />
         {isCeo && (
           <Kpi

@@ -5,6 +5,8 @@ export class BankAccountDto { @IsString() bankName: string; @IsString() alias: s
   @IsOptional() @IsString() popbillBankCode?: string | null; @IsOptional() @IsString() popbillAccountNumber?: string | null; }
 export class BankTxnRowDto { @IsString() txnAt: string; @IsEnum(TxnDirection) direction: TxnDirection; @Allow() amount: string | number; @IsOptional() @IsString() counterpartyRaw?: string; @IsOptional() @IsString() descriptionRaw?: string; @IsOptional() balanceAfter?: string | number; @IsOptional() @IsString() externalId?: string; }
 export class ImportDto { @IsString() bankAccountId: string; @IsArray() rows: BankTxnRowDto[]; }
+/** 계좌 거래 용도·메모 — 카드 지출과 같은 용도 목록. 빈 문자열을 보내면 지운다 */
+export class BankTxnPurposeDto { @IsOptional() @IsString() purposeText?: string; @IsOptional() @IsString() memo?: string; }
 export class ReserveDto { @IsString() category: string; @IsString() purpose: string; @Allow() amount: string | number; @IsOptional() @IsString() memo?: string; @IsOptional() @IsString() reason?: string; }
 export class UpdateReserveDto { @IsOptional() @IsString() category?: string; @IsOptional() @IsString() purpose?: string; @IsOptional() @IsString() memo?: string; }
 export class ReserveMoveDto { @IsIn(['INCREASE', 'RELEASE']) type: 'INCREASE' | 'RELEASE'; @Allow() amount: string | number; @IsString() reason: string; }

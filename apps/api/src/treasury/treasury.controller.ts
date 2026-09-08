@@ -4,7 +4,7 @@ import { TreasuryService } from './treasury.service';
 import { PopbillService } from './popbill.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthUser, CurrentUser } from '../common/decorators/current-user.decorator';
-import { BankAccountDto, ImportDto, PlannedDto, PlannedIncomeDto, ReserveDto, ReserveMoveDto, UpdateBankAccountDto, UpdatePlannedDto, UpdatePlannedIncomeDto, UpdateReserveDto } from './treasury.dto';
+import { BankAccountDto, BankTxnPurposeDto, ImportDto, PlannedDto, PlannedIncomeDto, ReserveDto, ReserveMoveDto, UpdateBankAccountDto, UpdatePlannedDto, UpdatePlannedIncomeDto, UpdateReserveDto } from './treasury.dto';
 
 /** 회사 전체 자금 정보는 CEO 전용 (Q5 기본 정책). 필요 시 ADMIN에 계좌 단위 scope를 부여하도록 확장. */
 @Controller('treasury')
@@ -17,6 +17,7 @@ export class TreasuryController {
 
   @Get('bank-transactions') txns(@CurrentUser() u: AuthUser, @Query() q: any) { return this.svc.listTransactions(u.companyId, { ...q, take: q.take ? Number(q.take) : undefined }); }
   @Post('bank-transactions/import') import(@CurrentUser() u: AuthUser, @Body() d: ImportDto) { return this.svc.importRows(u, d); }
+  @Patch('bank-transactions/:id/purpose') txnPurpose(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: BankTxnPurposeDto) { return this.svc.setTransactionPurpose(u, id, d); }
   @Post('bank-transactions/:id/ignore') ignore(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body('reason') reason?: string) { return this.svc.ignoreTransaction(u, id, reason); }
 
   // ── 팝빌 계좌조회 연동 ──
