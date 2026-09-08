@@ -1,6 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useSession } from '@/lib/session';
+import { DownSelect } from '@/components/DownSelect';
+import type { Account } from '@/lib/types';
 
 /**
  * 지출 용도 고정 목록 — 수기 입력 대신 선택. 설정의 코드값(CARD_PURPOSE)으로 관리하고,
@@ -30,17 +33,57 @@ export function PurposeSelect({
   className?: string;
   disabled?: boolean;
 }) {
-  const options = usePurposeOptions();
+  const purposes = usePurposeOptions();
+  const options = useMemo(() => {
+    const list = [{ value: '', label: '용도 선택' }, ...purposes.map((p) => ({ value: p, label: p }))];
+    // 목록 도입 전에 직접 입력했던 값은 그대로 보이게 유지
+    if (value && !purposes.includes(value)) list.push({ value, label: value });
+    return list;
+  }, [purposes, value]);
+
   return (
-    <select className={className ?? 'input'} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-      <option value="">용도 선택</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-      {/* 목록 도입 전에 직접 입력했던 값은 그대로 보이게 유지 */}
-      {value && !options.includes(value) && <option value={value}>{value}</option>}
-    </select>
+    <DownSelect
+      value={value}
+      options={options}
+      onChange={onChange}
+      placeholder="용도 선택"
+      className={className}
+      disabled={disabled}
+      ariaLabel="용도"
+    />
+  );
+}
+
+/** 비용 계정과목 선택 — 카드 지출·계좌 지출에서 같은 모양으로 쓴다 */
+export function AccountSelect({
+  value,
+  accounts,
+  onChange,
+  className,
+  disabled,
+  emptyLabel = '자동',
+}: {
+  value: string;
+  accounts: Account[];
+  onChange: (v: string) => void;
+  className?: string;
+  disabled?: boolean;
+  /** 미지정일 때 보여줄 말 — 카드는 '자동'(시스템 기본 계정), 계좌는 '계정과목 선택' */
+  emptyLabel?: string;
+}) {
+  const options = useMemo(
+    () => [{ value: '', label: emptyLabel }, ...accounts.map((a) => ({ value: a.id, label: a.name }))],
+    [accounts, emptyLabel],
+  );
+  return (
+    <DownSelect
+      value={value}
+      options={options}
+      onChange={onChange}
+      placeholder={emptyLabel}
+      className={className}
+      disabled={disabled}
+      ariaLabel="계정과목"
+    />
   );
 }

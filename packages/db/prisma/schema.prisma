@@ -354,6 +354,7 @@ model Account {
   children Account[]     @relation("AccountTree")
   lines    JournalLine[]
   cardExpenses CardExpense[]
+  bankTransactions BankTransaction[]
 
   @@unique([companyId, code])
   @@unique([companyId, systemKey])
@@ -499,8 +500,10 @@ model BankTransaction {
   memo            String? // 메모 — 자유 비고 (용도와 별개)
   purposeById     String? // 용도 입력자
   purposeAt       DateTime?
+  accountId       String? // 비용 계정과목 — 카드 지출과 같은 분류 축
 
   bankAccount    BankAccount            @relation(fields: [bankAccountId], references: [id])
+  account        Account?               @relation(fields: [accountId], references: [id])
   classification BankTxnClassification?
   cardExpense    CardExpense?
 

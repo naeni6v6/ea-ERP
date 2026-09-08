@@ -8,7 +8,7 @@ import { big, dateTime, num, thisMonthSeoul } from '@/lib/format';
 import { CardBrandMark } from '@/components/CardBrand';
 import { CardUsage } from '@/components/CardUsage';
 import { MoneyInput } from '@/components/MoneyInput';
-import { PurposeSelect } from '@/components/PurposeSelect';
+import { AccountSelect, PurposeSelect } from '@/components/PurposeSelect';
 import { Empty, ErrorBox, Field, Modal, Section, Spinner } from '@/components/ui';
 import type { Account, BankAccount, CardExpense, CardExpenseList, CardExpenseStatus, CorporateCard, Project, UserRow } from '@/lib/types';
 
@@ -422,8 +422,8 @@ function ExpenseList({
                     <th className="th">거래 상태</th>
                     <th className="th">사용자</th>
                     <th className="th">용도</th>
-                    <th className="th">메모</th>
                     {isManager && <th className="th">계정과목</th>}
+                    <th className="th">메모</th>
                     {isManager && <th className="th">프로젝트</th>}
                     <th className="th text-right">승인</th>
                   </tr>
@@ -479,6 +479,20 @@ function ExpenseList({
                             <span>{e.purposeText ?? '—'}</span>
                           )}
                         </td>
+                        {isManager && (
+                          <td className="td">
+                            {canEdit ? (
+                              <AccountSelect
+                                className="input w-full min-w-[130px] !py-1.5 text-sm"
+                                value={e.accountId ?? ''}
+                                accounts={expenseAccounts}
+                                onChange={(v) => setDims(e, { accountId: v })}
+                              />
+                            ) : (
+                              <span className="text-ink-mute">{e.account?.name ?? '—'}</span>
+                            )}
+                          </td>
+                        )}
                         <td className="td min-w-[150px]">
                           {canEdit ? (
                             <input
@@ -491,26 +505,6 @@ function ExpenseList({
                             <span className="text-ink-mute">{e.memo ?? '—'}</span>
                           )}
                         </td>
-                        {isManager && (
-                          <td className="td">
-                            {canEdit ? (
-                              <select
-                                className="input w-full min-w-[130px] !py-1.5 text-sm"
-                                value={e.accountId ?? ''}
-                                onChange={(ev) => setDims(e, { accountId: ev.target.value })}
-                              >
-                                <option value="">자동</option>
-                                {expenseAccounts.map((a) => (
-                                  <option key={a.id} value={a.id}>
-                                    {a.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className="text-ink-mute">{e.account?.name ?? '—'}</span>
-                            )}
-                          </td>
-                        )}
                         {isManager && (
                           <td className="td">
                             {canEdit ? (

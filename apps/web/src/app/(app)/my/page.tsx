@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
@@ -10,6 +10,32 @@ import { Empty, ErrorBox, Section, Spinner, StatusBadge } from '@/components/ui'
 import type { Task, UserRow, WorkLog } from '@/lib/types';
 
 const kdateLabel = (ymd: string) => `${ymd.replace(/-/g, '.')} (${WEEKDAY[new Date(`${ymd}T00:00:00+09:00`).getDay()]})`;
+
+/**
+ * 업무 일지 = 체크리스트. 서버에는 지금처럼 한 덩어리 글로 저장하고,
+ * 줄마다 '- [ ] 내용' / '- [x] 내용' 으로 적어 체크 여부를 담는다.
+ * 예전에 자유 글로 쓴 일지도 줄 단위로 그대로 읽혀서(체크 안 된 항목) 기록이 사라지지 않는다.
+ */
+interface LogItem {
+  done: boolean;
+  text: string;
+}
+const CHECK_LINE = /^\s*[-*]\s*\[([ xX])\]\s?(.*)$/;
+const parseLog = (content: string): LogItem[] =>
+  (content ?? '')
+    .split('\n')
+    .map((raw) => {
+      const m = raw.match(CHECK_LINE);
+      if (m) return { done: m[1].toLowerCase() === 'x', text: m[2].trim() };
+      const t = raw.replace(/^\s*[-*>\s]+/, '').trim();
+      return { done: false, text: t };
+    })
+    .filter((i) => i.text.length > 0);
+const serializeLog = (items: LogItem[]) =>
+  items
+    .filter((i) => i.text.trim())
+    .map((i) => `- [${i.done ? 'x' : ' '}] ${i.text.trim()}`)
+    .join('\n');
 
 /**
  * 일별 완료 현황 — 최근 14일 동안 완료 처리(doneAt)한 업무 수를 막대로 보여준다.
@@ -228,6 +254,188 @@ function WorkLogCalendar({
   );
 }
 
+/** 그날 완료 체크한 업무 — 자동으로 붙는 목록 (취소선) */
+function DoneList({ items }: { items: Task[] }) {
+  if (items.length === 0) return null;
+  return (
+    <ol className="space-y-1">
+      {items.map((t, i) => (
+        <li key={t.id} className="flex items-baseline gap-2 text-sm">
+          <span className="font-num w-4 shrink-0 text-right text-xs text-ink-faint">{i + 1}.</span>
+          <span className="text-ink-mute line-through decoration-ink-faint/60">{t.title}</span>
+          {t.project && <span className="text-xs text-ink-faint">· {t.project.name}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * 본인 업무 일지 — 체크리스트.
+ * [작성] 버튼 없이 맨 아래 칸에 바로 쳐서 Enter로 항목을 추가하고, 항목 글자도 눌러서 바로 고친다.
+ * 체크 안 된 항목은 (진행중)으로 남는다. 바뀔 때마다 하루치를 통째로 저장한다.
+ * 날짜별로 새로 마운트되도록 부모가 key={date}를 준다.
+ */
+function DailyChecklist({
+  date,
+  log,
+  loading,
+  onSaved,
+  meName,
+  dayTasks,
+  calendar,
+}: {
+  date: string;
+  log: WorkLog | null;
+  loading: boolean;
+  onSaved: () => void;
+  meName: string;
+  dayTasks: Task[];
+  calendar: ReactNode;
+}) {
+  const [items, setItems] = useState<LogItem[]>(() => parseLog(log?.content ?? ''));
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  // 서버 내용이 새로 오면(첫 로딩·저장 후 재조회) 그것으로 맞춘다
+  const serverKey = loading ? null : (log?.updatedAt ?? 'none');
+  const [syncedKey, setSyncedKey] = useState<string | null>(serverKey);
+  if (serverKey !== null && serverKey !== syncedKey) {
+    setSyncedKey(serverKey);
+    setItems(parseLog(log?.content ?? ''));
+  }
+
+  // 연달아 체크하면 렌더 전 상태로 계산돼 하나가 묻힐 수 있어, 최신 목록은 ref로 들고 간다.
+  // 저장도 순서대로 이어 붙여 늦게 도착한 응답이 앞선 변경을 덮지 않게 한다.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+
+  /** 항목 목록을 통째로 저장 — 화면은 먼저 바꾸고, 실패하면 되돌린다 */
+  const commit = (next: LogItem[]) => {
+    const prev = itemsRef.current;
+    itemsRef.current = next;
+    setItems(next);
+    setBusy(true);
+    setError('');
+    queue.current = queue.current
+      .then(() => api.put('/worklogs', { date, content: serializeLog(next) }))
+      .then(() => onSaved())
+      .catch((e: unknown) => {
+        itemsRef.current = prev;
+        setItems(prev);
+        setError(e instanceof Error ? e.message : '저장에 실패했습니다');
+      })
+      .finally(() => setBusy(false));
+  };
+
+  const addItem = () => {
+    const t = draft.trim();
+    if (!t) return;
+    setDraft('');
+    commit([...itemsRef.current, { done: false, text: t }]);
+  };
+  const toggleItem = (i: number) =>
+    commit(itemsRef.current.map((it, idx) => (idx === i ? { ...it, done: !it.done } : it)));
+  /** 글자를 비우면 그 항목은 지운다 */
+  const editItem = (i: number, text: string) => {
+    const cur = itemsRef.current;
+    const v = text.trim();
+    if (!cur[i] || v === cur[i].text) return;
+    commit(v ? cur.map((it, idx) => (idx === i ? { ...it, text: v } : it)) : cur.filter((_, idx) => idx !== i));
+  };
+  const removeItem = (i: number) => commit(itemsRef.current.filter((_, idx) => idx !== i));
+
+  const openCount = items.filter((i) => !i.done).length;
+  const doneCount = items.length - openCount;
+
+  return (
+    <Section
+      title={`업무 일지 · ${kdateLabel(date)}`}
+      right={
+        <span className="text-xs text-ink-mute">
+          {busy ? (
+            '저장 중…'
+          ) : (
+            <>
+              진행중 <b className="font-num text-brand-deep">{openCount}</b>건 · 완료{' '}
+              <b className="font-num text-ink">{doneCount}</b>건
+            </>
+          )}
+        </span>
+      }
+    >
+      <div className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1fr),330px]">
+        <div className="space-y-3">
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-ink-mute">{meName}</p>
+            <DoneList items={dayTasks} />
+            {dayTasks.length === 0 && <p className="text-xs text-ink-faint">이 날짜에 완료 체크한 업무가 없습니다.</p>}
+          </div>
+
+          {/* 체크리스트 — 항목을 바로 고쳐 쓰고, 체크 안 된 항목은 (진행중)으로 남는다 */}
+          <div className="rounded-lg border border-line-soft bg-line-soft/30 px-2 py-1.5">
+            <ul className="divide-y divide-line-soft/70">
+              {items.map((it, i) => (
+                <li key={`${i}-${it.text}`} className="group flex items-center gap-2 px-1 py-1">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 shrink-0 accent-brand"
+                    checked={it.done}
+                    onChange={() => toggleItem(i)}
+                    aria-label={`${it.text} 완료`}
+                  />
+                  <input
+                    defaultValue={it.text}
+                    onBlur={(e) => editItem(i, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    }}
+                    className={`min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-sm outline-none hover:border-line focus:border-brand focus:bg-white ${
+                      it.done ? 'text-ink-faint line-through' : 'text-ink'
+                    }`}
+                    aria-label="일지 항목"
+                  />
+                  {!it.done && <span className="shrink-0 text-xs text-warn">(진행중)</span>}
+                  <button
+                    className="shrink-0 px-1 text-xs text-ink-faint opacity-0 transition-opacity hover:text-neg group-hover:opacity-100"
+                    onClick={() => removeItem(i)}
+                    title="항목 삭제"
+                    aria-label="항목 삭제"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {/* 바로 타이핑 — 버튼 없이 여기에 쓰고 Enter 치면 항목이 추가된다 */}
+            <div className="flex items-center gap-2 border-t border-line-soft px-1 py-1">
+              <span className="w-4 shrink-0 text-center text-sm text-ink-faint">+</span>
+              <input
+                className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-ink-faint hover:border-line focus:border-brand focus:bg-white"
+                placeholder={items.length ? '항목을 입력하고 Enter' : '오늘 한 일을 입력하고 Enter (예: 계약서 초안 회신)'}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={addItem}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addItem();
+                  }
+                }}
+                aria-label="새 일지 항목"
+              />
+            </div>
+          </div>
+          {error && <p className="text-xs text-neg">{error}</p>}
+        </div>
+        {calendar}
+      </div>
+    </Section>
+  );
+}
+
 /**
  * 일일 업무 일지 — 슬랙 데일리 로그처럼 "그날 뭐 했는지"를 기록한다.
  * 그날 완료 체크한 업무는 취소선 목록으로 자동으로 붙고, 자유 메모를 직접 작성·수정한다.
@@ -256,99 +464,22 @@ function WorkLogSection({
       ),
     [date, scope],
   );
-  const [text, setText] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
   // 선택한 날짜에 완료 체크된 업무 (현재 스코프 기준)
   const dayTasks = tasks.filter((t) => t.doneAt && seoulYmd(new Date(t.doneAt)) === date);
 
-  const save = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      await api.put('/worklogs', { date, content: text });
-      setEditing(false);
-      logs.reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '저장에 실패했습니다');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const DoneList = ({ items }: { items: Task[] }) =>
-    items.length === 0 ? null : (
-      <ol className="space-y-1">
-        {items.map((t, i) => (
-          <li key={t.id} className="flex items-baseline gap-2 text-sm">
-            <span className="font-num w-4 shrink-0 text-right text-xs text-ink-faint">{i + 1}.</span>
-            <span className="text-ink-mute line-through decoration-ink-faint/60">{t.title}</span>
-            {t.project && <span className="text-xs text-ink-faint">· {t.project.name}</span>}
-          </li>
-        ))}
-      </ol>
-    );
-
   if (scope === 'me') {
-    const mine = logs.data?.[0] ?? null;
     return (
-      <Section
-        title={`업무 일지 · ${kdateLabel(date)}`}
-        right={
-          !editing && (
-            <button
-              className="btn-ghost border border-line !px-3 !py-1.5 text-xs"
-              onClick={() => {
-                setText(mine?.content ?? '');
-                setEditing(true);
-              }}
-            >
-              {mine ? '✎ 수정' : '+ 작성'}
-            </button>
-          )
-        }
-      >
-        <div className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1fr),330px]">
-          <div className="space-y-3">
-          <div>
-            <p className="mb-1.5 text-xs font-semibold text-ink-mute">{meName}</p>
-            <DoneList items={dayTasks} />
-            {dayTasks.length === 0 && <p className="text-xs text-ink-faint">이 날짜에 완료 체크한 업무가 없습니다.</p>}
-          </div>
-
-          {editing ? (
-            <div className="space-y-2">
-              <textarea
-                autoFocus
-                className="input min-h-[110px] w-full resize-y text-sm leading-relaxed"
-                placeholder={'예)\n-> 계약서 초안 회신 완료, 안좋은 평이 있어서 더블체크 필요.\n-> 내일 오전 기보 서류 마무리 예정'}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                disabled={busy}
-              />
-              <div className="flex items-center justify-end gap-2">
-                {error && <span className="mr-auto text-xs text-neg">{error}</span>}
-                <button className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setEditing(false)} disabled={busy}>
-                  취소
-                </button>
-                <button className="btn-primary !px-3.5 !py-1.5 text-xs" onClick={save} disabled={busy}>
-                  {busy ? '저장 중…' : '저장'}
-                </button>
-              </div>
-            </div>
-          ) : mine ? (
-            <p className="whitespace-pre-wrap rounded-lg bg-line-soft/50 px-3.5 py-2.5 text-sm leading-relaxed text-ink-soft">
-              {mine.content}
-            </p>
-          ) : (
-            <p className="text-xs text-ink-faint">아직 작성한 일지가 없습니다. 우측 상단 [+ 작성]으로 남겨보세요.</p>
-          )}
-          </div>
-          <WorkLogCalendar scope={scope} selected={date} onSelect={onSelectDate} />
-        </div>
-      </Section>
+      <DailyChecklist
+        // 날짜가 바뀌면 새로 시작 — 이전 날짜 항목이 잠깐 남지 않는다
+        key={date}
+        date={date}
+        log={logs.data?.[0] ?? null}
+        loading={logs.loading}
+        onSaved={logs.reload}
+        meName={meName}
+        dayTasks={dayTasks}
+        calendar={<WorkLogCalendar scope={scope} selected={date} onSelect={onSelectDate} />}
+      />
     );
   }
 
@@ -378,9 +509,17 @@ function WorkLogSection({
                   <p className="mb-2 text-sm font-bold">{p.name}</p>
                   <DoneList items={p.tasks} />
                   {p.log ? (
-                    <p className="mt-2 whitespace-pre-wrap rounded-lg bg-line-soft/50 px-3 py-2 text-sm leading-relaxed text-ink-soft">
-                      {p.log.content}
-                    </p>
+                    <ul className="mt-2 space-y-1 rounded-lg bg-line-soft/50 px-3 py-2">
+                      {parseLog(p.log.content).map((it, i) => (
+                        <li key={i} className="flex items-baseline gap-2 text-sm leading-relaxed">
+                          <span className={`shrink-0 text-xs ${it.done ? 'text-pos' : 'text-ink-faint'}`}>
+                            {it.done ? '☑' : '☐'}
+                          </span>
+                          <span className={it.done ? 'text-ink-faint line-through' : 'text-ink-soft'}>{it.text}</span>
+                          {!it.done && <span className="shrink-0 text-xs text-warn">(진행중)</span>}
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
                     <p className="mt-2 text-xs text-ink-faint">작성한 일지 없음</p>
                   )}

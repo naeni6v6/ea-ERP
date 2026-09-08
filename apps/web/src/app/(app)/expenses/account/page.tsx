@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useFilters } from '@/lib/filters';
 import { resolveRange } from '@/lib/dateRange';
 import { useAsync } from '@/lib/useAsync';
 import { big, dateTime, num, sdate } from '@/lib/format';
-import { PurposeSelect } from '@/components/PurposeSelect';
+import { AccountSelect, PurposeSelect } from '@/components/PurposeSelect';
 import { Empty, ErrorBox, Section, Spinner, StatusBadge } from '@/components/ui';
-import type { BankAccount, BankTransaction } from '@/lib/types';
+import type { Account, BankAccount, BankTransaction } from '@/lib/types';
 
 /**
  * 지출 > 계좌 — 은행 계좌 입출금 내역. 기본은 출금(지출)만 보여주고,
@@ -21,7 +21,7 @@ interface PopbillSyncResult {
   results: { alias?: string; total?: number; inserted?: number; skipped?: number; error?: string }[];
 }
 
-type PurposePatch = { purposeText: string | null; memo: string | null };
+type PurposePatch = { purposeText: string | null; memo: string | null; accountId: string | null; account: { id: string; name: string } | null };
 
 export default function AccountExpensesPage() {
   const { isCeo } = useSession();
@@ -43,6 +43,12 @@ export default function AccountExpensesPage() {
   const range = resolveRange(filters.preset, filters.from, filters.to);
 
   const accounts = useAsync(() => (isCeo ? api.get<BankAccount[]>('/treasury/bank-accounts') : Promise.resolve(null)), [isCeo]);
+  // 계정과목(비용) — 카드 지출과 같은 목록에서 고른다
+  const ledgerAccounts = useAsync(() => (isCeo ? api.get<Account[]>('/accounts') : Promise.resolve([] as Account[])), [isCeo]);
+  const expenseAccounts = useMemo(
+    () => (ledgerAccounts.data ?? []).filter((a) => a.category === 'EXPENSE' && a.isActive),
+    [ledgerAccounts.data],
+  );
   const res = useAsync(
     () =>
       isCeo
@@ -75,13 +81,16 @@ export default function AccountExpensesPage() {
   const inSum = rows.filter((t) => t.direction === 'IN').reduce((a, t) => a + big(t.amount), 0n);
   const unclassifiedOut = allRows.filter((t) => t.direction === 'OUT' && !t.purposeText).length;
 
-  /** 용도·메모 저장 — 원본(일시·금액·내용)은 그대로, 분류만 붙인다 */
-  const savePurpose = async (t: BankTransaction, body: { purposeText?: string; memo?: string }) => {
+  /** 용도·계정과목·메모 저장 — 원본(일시·금액·내용)은 그대로, 분류만 붙인다 */
+  const savePurpose = async (t: BankTransaction, body: { purposeText?: string; memo?: string; accountId?: string }) => {
     setBusyId(t.id);
     setSaveError('');
     try {
       const r = await api.patch<BankTransaction>(`/treasury/bank-transactions/${t.id}/purpose`, body);
-      setPatched((prev) => ({ ...prev, [t.id]: { purposeText: r.purposeText ?? null, memo: r.memo ?? null } }));
+      setPatched((prev) => ({
+        ...prev,
+        [t.id]: { purposeText: r.purposeText ?? null, memo: r.memo ?? null, accountId: r.accountId ?? null, account: r.account ?? null },
+      }));
       setMemoDrafts((prev) => {
         const { [t.id]: _drop, ...rest } = prev;
         return rest;
@@ -237,6 +246,7 @@ export default function AccountExpensesPage() {
                   <th className="th">구분</th>
                   <th className="th text-right">금액</th>
                   <th className="th">용도</th>
+                  <th className="th">계정과목</th>
                   <th className="th">메모</th>
                   <th className="th">장부 분류</th>
                 </tr>
@@ -270,6 +280,20 @@ export default function AccountExpensesPage() {
                           value={t.purposeText ?? ''}
                           disabled={busyId === t.id}
                           onChange={(v) => void savePurpose(t, { purposeText: v })}
+                        />
+                      ) : (
+                        <span className="text-ink-faint">—</span>
+                      )}
+                    </td>
+                    <td className="td min-w-[150px]">
+                      {t.direction === 'OUT' ? (
+                        <AccountSelect
+                          className="input w-full !py-1.5 text-sm"
+                          value={t.accountId ?? ''}
+                          accounts={expenseAccounts}
+                          disabled={busyId === t.id}
+                          emptyLabel="계정과목 선택"
+                          onChange={(v) => void savePurpose(t, { accountId: v })}
                         />
                       ) : (
                         <span className="text-ink-faint">—</span>

@@ -81,7 +81,7 @@ export class TreasuryService {
   listTransactions(cid: string, q: { bankAccountId?: string; from?: string; to?: string; status?: string; direction?: string; take?: number }) {
     return this.prisma.bankTransaction.findMany({
       where: { bankAccount: { companyId: cid }, bankAccountId: q.bankAccountId, direction: q.direction === 'IN' || q.direction === 'OUT' ? q.direction : undefined, txnAt: { gte: q.from ? new Date(`${q.from}T00:00:00+09:00`) : undefined, lt: q.to ? new Date(new Date(`${q.to}T00:00:00+09:00`).getTime() + 86400000) : undefined }, ...(q.status ? { classification: { status: q.status as any } } : {}) },
-      include: { bankAccount: { select: { alias: true, bankName: true } }, classification: { include: { journalEntry: { select: { id: true, entryNo: true, type: true, memo: true } } } } },
+      include: { bankAccount: { select: { alias: true, bankName: true } }, account: { select: { id: true, name: true } }, classification: { include: { journalEntry: { select: { id: true, entryNo: true, type: true, memo: true } } } } },
       orderBy: { txnAt: 'desc' }, take: q.take ?? 100,
     });
   }
@@ -93,23 +93,32 @@ export class TreasuryService {
     await this.audit.log({ companyId: u.companyId, actorId: u.id, entity: 'BankTransaction', entityId: id, action: 'IGNORE', reason });
     return { ok: true };
   }
-  /** 계좌 거래 용도·메모 — 카드 지출의 용도 분류와 같은 목록에서 고른다. 원본(일시·금액·내용)은 건드리지 않는다 */
+  /** 계좌 거래 용도·계정과목·메모 — 카드 지출과 같은 분류 축. 원본(일시·금액·내용)은 건드리지 않는다 */
   async setTransactionPurpose(u: AuthUser, id: string, d: BankTxnPurposeDto) {
     const before = await this.prisma.bankTransaction.findFirst({ where: { id, bankAccount: { companyId: u.companyId } } });
     if (!before) throw new NotFoundException('거래 없음');
-    const data: Prisma.BankTransactionUpdateInput = {};
+    const data: Prisma.BankTransactionUncheckedUpdateInput = {};
     if (d.purposeText !== undefined) {
       const p = d.purposeText.trim() || null;
       Object.assign(data, { purposeText: p, purposeById: p ? u.id : null, purposeAt: p ? new Date() : null });
     }
     if (d.memo !== undefined) data.memo = d.memo.trim() || null;
+    if (d.accountId !== undefined) {
+      const accountId = d.accountId.trim() || null;
+      if (accountId) {
+        const acc = await this.prisma.account.findFirst({ where: { id: accountId, companyId: u.companyId } });
+        if (!acc) throw new NotFoundException('계정과목 없음');
+      }
+      data.accountId = accountId;
+    }
     const after = await this.prisma.bankTransaction.update({
       where: { id }, data,
-      include: { bankAccount: { select: { alias: true, bankName: true } }, classification: { include: { journalEntry: { select: { id: true, entryNo: true, type: true, memo: true } } } } },
+      include: { bankAccount: { select: { alias: true, bankName: true } }, account: { select: { id: true, name: true } }, classification: { include: { journalEntry: { select: { id: true, entryNo: true, type: true, memo: true } } } } },
     });
     await this.audit.log({
       companyId: u.companyId, actorId: u.id, entity: 'BankTransaction', entityId: id, action: 'PURPOSE',
-      before: { purposeText: before.purposeText, memo: before.memo }, after: { purposeText: after.purposeText, memo: after.memo },
+      before: { purposeText: before.purposeText, memo: before.memo, accountId: before.accountId },
+      after: { purposeText: after.purposeText, memo: after.memo, accountId: after.accountId },
     });
     return after;
   }

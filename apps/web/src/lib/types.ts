@@ -290,6 +290,9 @@ export interface BankTransaction {
   /** 용도 — 카드 지출과 같은 용도 목록에서 선택 (급여비·프로젝트비 등) */
   purposeText?: string | null;
   memo?: string | null;
+  /** 비용 계정과목 — 카드 지출과 같은 분류 축 */
+  accountId?: string | null;
+  account?: { id: string; name: string } | null;
   bankAccount?: { alias: string; bankName: string };
   classification?: {
     status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'IGNORED';
