@@ -7,35 +7,17 @@ import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { seoulYmd, todaySeoul, WEEKDAY } from '@/lib/format';
 import { Empty, ErrorBox, Section, Spinner, StatusBadge } from '@/components/ui';
+import { parseLog, pendingLogItems, serializeLog, withItemDone, type LogItem, type PendingLogItem } from '@/lib/worklog';
 import type { Task, UserRow, WorkLog } from '@/lib/types';
 
 const kdateLabel = (ymd: string) => `${ymd.replace(/-/g, '.')} (${WEEKDAY[new Date(`${ymd}T00:00:00+09:00`).getDay()]})`;
+/** 'YYYY-MM-DD' 에서 며칠 이동 (KST) */
+const shiftDays = (ymd: string, days: number) =>
+  seoulYmd(new Date(new Date(`${ymd}T12:00:00+09:00`).getTime() + days * 86400000));
+/** 며칠 전인지 — 오늘이면 0 */
+const daysAgo = (ymd: string, today: string) =>
+  Math.round((new Date(`${today}T12:00:00+09:00`).getTime() - new Date(`${ymd}T12:00:00+09:00`).getTime()) / 86400000);
 
-/**
- * 업무 일지 = 체크리스트. 서버에는 지금처럼 한 덩어리 글로 저장하고,
- * 줄마다 '- [ ] 내용' / '- [x] 내용' 으로 적어 체크 여부를 담는다.
- * 예전에 자유 글로 쓴 일지도 줄 단위로 그대로 읽혀서(체크 안 된 항목) 기록이 사라지지 않는다.
- */
-interface LogItem {
-  done: boolean;
-  text: string;
-}
-const CHECK_LINE = /^\s*[-*]\s*\[([ xX])\]\s?(.*)$/;
-const parseLog = (content: string): LogItem[] =>
-  (content ?? '')
-    .split('\n')
-    .map((raw) => {
-      const m = raw.match(CHECK_LINE);
-      if (m) return { done: m[1].toLowerCase() === 'x', text: m[2].trim() };
-      const t = raw.replace(/^\s*[-*>\s]+/, '').trim();
-      return { done: false, text: t };
-    })
-    .filter((i) => i.text.length > 0);
-const serializeLog = (items: LogItem[]) =>
-  items
-    .filter((i) => i.text.trim())
-    .map((i) => `- [${i.done ? 'x' : ' '}] ${i.text.trim()}`)
-    .join('\n');
 
 /**
  * 일별 완료 현황 — 최근 14일 동안 완료 처리(doneAt)한 업무 수를 막대로 보여준다.
@@ -447,6 +429,8 @@ function WorkLogSection({
   tasks,
   meName,
   onSelectDate,
+  tick,
+  onChanged,
 }: {
   date: string;
   /** 'me' | 'all' | userId */
@@ -455,6 +439,10 @@ function WorkLogSection({
   meName: string;
   /** 우측 캘린더에서 날짜 클릭 시 */
   onSelectDate: (ymd: string) => void;
+  /** 아래 [진행 중]에서 항목을 체크하면 올라가는 값 — 여기도 다시 읽는다 */
+  tick: number;
+  /** 여기서 일지를 고치면 [진행 중] 목록도 다시 읽게 알린다 */
+  onChanged: () => void;
 }) {
   const logs = useAsync(
     () =>
@@ -462,7 +450,7 @@ function WorkLogSection({
         '/worklogs',
         scope === 'me' ? { date } : scope === 'all' ? { date, scope: 'all' } : { date, userId: scope },
       ),
-    [date, scope],
+    [date, scope, tick],
   );
   // 선택한 날짜에 완료 체크된 업무 (현재 스코프 기준)
   const dayTasks = tasks.filter((t) => t.doneAt && seoulYmd(new Date(t.doneAt)) === date);
@@ -475,7 +463,7 @@ function WorkLogSection({
         date={date}
         log={logs.data?.[0] ?? null}
         loading={logs.loading}
-        onSaved={logs.reload}
+        onSaved={onChanged}
         meName={meName}
         dayTasks={dayTasks}
         calendar={<WorkLogCalendar scope={scope} selected={date} onSelect={onSelectDate} />}
@@ -551,6 +539,26 @@ export default function MyTasksPage() {
   const today = todaySeoul();
   const [selectedDate, setSelectedDate] = useState(today);
 
+  // 업무 일지가 바뀔 때마다 올린다 — 일지 섹션과 아래 [진행 중] 목록이 같은 값을 본다
+  const [logTick, setLogTick] = useState(0);
+  const bumpLogs = () => setLogTick((t) => t + 1);
+
+  /**
+   * 지난 일지에서 아직 체크 안 한 항목 — 날짜가 지나도 [진행 중]에 계속 남는다.
+   * 하루 한 건짜리 기록이라 1년치를 읽어도 가볍다.
+   */
+  const carryFrom = shiftDays(today, -365);
+  const pastLogs = useAsync(
+    () =>
+      api.get<WorkLog[]>('/worklogs', {
+        from: carryFrom,
+        to: today,
+        ...(scope === 'me' ? {} : scope === 'all' ? { scope: 'all' } : { userId: scope }),
+      }),
+    [scope, carryFrom, today, logTick],
+  );
+  const pending = pendingLogItems(pastLogs.data, me?.id);
+
   const toggle = async (t: Task) => {
     setError('');
     try {
@@ -558,6 +566,21 @@ export default function MyTasksPage() {
       res.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : '변경에 실패했습니다');
+    }
+  };
+
+  /** [진행 중]에서 일지 항목 완료 — 그 날짜의 일지를 다시 저장한다 (본인 일지만) */
+  const [logBusy, setLogBusy] = useState('');
+  const completeLogItem = async (p: PendingLogItem) => {
+    setError('');
+    setLogBusy(p.key);
+    try {
+      await api.put('/worklogs', { date: p.date, content: withItemDone(p.log.content, p.index) });
+      bumpLogs();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '변경에 실패했습니다');
+    } finally {
+      setLogBusy('');
     }
   };
 
@@ -579,7 +602,7 @@ export default function MyTasksPage() {
         <div>
           <h1 className="page-title">내 업무</h1>
           <p className="mt-1.5 text-base font-medium text-ink-soft">
-            {scopeName} · 남은 <b className="font-num text-brand-deep">{open.length}</b>건
+            {scopeName} · 남은 <b className="font-num text-brand-deep">{open.length + pending.length}</b>건
             {overdue.length > 0 && (
               <span className="text-neg">
                 {' '}
@@ -613,13 +636,53 @@ export default function MyTasksPage() {
         <>
           <DailyDoneChart tasks={tasks} selected={selectedDate} onSelect={setSelectedDate} />
 
-          <WorkLogSection date={selectedDate} scope={scope} tasks={tasks} meName={me?.name ?? ''} onSelectDate={setSelectedDate} />
+          <WorkLogSection
+            date={selectedDate}
+            scope={scope}
+            tasks={tasks}
+            meName={me?.name ?? ''}
+            onSelectDate={setSelectedDate}
+            tick={logTick}
+            onChanged={bumpLogs}
+          />
 
-          <Section title="진행 중">
-            {!open.length ? (
+          <Section
+            title="진행 중"
+            desc={pending.length > 0 ? '업무 일지에서 체크하지 않은 항목은 날짜가 지나도 여기에 계속 남습니다' : undefined}
+          >
+            {!open.length && !pending.length ? (
               <Empty>남은 업무가 없습니다.</Empty>
             ) : (
               <ul className="divide-y divide-line-soft">
+                {/* 지난 일지에서 넘어온 미체크 항목 — 오래된 것부터 */}
+                {pending.map((p) => {
+                  const ago = daysAgo(p.date, today);
+                  return (
+                    <li key={p.key} className="flex items-center gap-3 px-4 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        disabled={!p.mine || logBusy === p.key}
+                        onChange={() => completeLogItem(p)}
+                        className="h-4 w-4 accent-brand"
+                        title={p.mine ? '완료로 체크합니다' : '본인 일지만 체크할 수 있습니다'}
+                        aria-label={`${p.text} 완료`}
+                      />
+                      <span className="flex-1 text-sm">{p.text}</span>
+                      <span className="badge bg-line-soft text-ink-mute">일지</span>
+                      {showAssignee && p.log.user && (
+                        <span className="badge bg-brand-soft text-brand-deep">{p.log.user.name}</span>
+                      )}
+                      <button
+                        className={`w-24 text-right font-num text-xs hover:underline ${ago > 0 ? 'font-medium text-warn' : 'text-ink-faint'}`}
+                        onClick={() => setSelectedDate(p.date)}
+                        title={`${p.date} 일지로 이동`}
+                      >
+                        {ago === 0 ? '오늘' : `${ago}일 전`}
+                      </button>
+                    </li>
+                  );
+                })}
                 {open.map((t) => {
                   const late = t.dueDate && t.dueDate.slice(0, 10) < today;
                   return (
