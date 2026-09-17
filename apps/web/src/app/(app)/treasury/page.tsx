@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { big, compact, dateTime, num, seoulYmd, signClass, todaySeoul } from '@/lib/format';
+import { CashBurnPanel } from '@/components/CashBurn';
 import { CategoryLimitsSection } from '@/components/CategoryLimits';
 import { EntryFormModal } from '@/components/EntryFormModal';
 import { MoneyInput } from '@/components/MoneyInput';
@@ -13,6 +14,7 @@ import { Empty, ErrorBox, Field, Kpi, Modal, PencilButton, Section, Spinner, Sta
 import type {
   BankAccount,
   BankTransaction,
+  CashBurn,
   PlannedIncome,
   PlannedPayment,
   Reserve,
@@ -37,6 +39,7 @@ const TABS: { key: Tab; label: string }[] = [
 export default function TreasuryPage() {
   const [tab, setTab] = useState<Tab>('accounts');
   const kpiRes = useAsync(() => api.get<TreasuryKpi>('/metrics/treasury'), []);
+  const burnRes = useAsync(() => api.get<CashBurn>('/metrics/burn'), []);
 
   return (
     <div className="space-y-5">
@@ -67,6 +70,9 @@ export default function TreasuryPage() {
       ) : (
         <Spinner />
       )}
+
+      {/* ── Burn Rate · Runway — 월 현금 소진과 버틸 수 있는 기간, 월별 입출금 추이 ── */}
+      {burnRes.error ? <ErrorBox message={burnRes.error} onRetry={burnRes.reload} /> : burnRes.data && <CashBurnPanel data={burnRes.data} withChart />}
 
       {/* ── 항목별 지출 한도 — 식비·접대비 등 한도 대비 사용액·남은 금액 ── */}
       <CategoryLimitsSection />

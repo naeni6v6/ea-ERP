@@ -26,3 +26,6 @@ Desktop.ini
 netlify-demo/
 .next-demo/
 apps/web/public/demo-fixtures.json
+
+# 비밀정보 보관 폴더 (API 키·DB 백업) — 절대 커밋 금지
+ea-erp-비밀정보/

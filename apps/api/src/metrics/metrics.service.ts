@@ -174,4 +174,135 @@ export class MetricsService {
     out.projects = await this.projectsKpi(user, sel);
     return out;
   }
+
+  // ───────── Burn Rate · Runway (대표 전용) ─────────
+  /**
+   * 월별 실제 입출금(은행거래)으로 현금 소진 속도와 버틸 수 있는 기간을 계산한다.
+   *  - Gross Burn = 월 평균 출금, Net Burn = 월 평균 (출금 − 입금)
+   *  - Runway = 현금 ÷ Net Burn (개월). Net Burn ≤ 0 이면 현금이 늘고 있어 소진 없음
+   *
+   * 두 기준을 함께 돌려준다 (화면에서 고른다):
+   *  - available: 운영계좌(사용제한 제외)의 입출금 ÷ 가용현금 — 원칙적인 기준
+   *  - all: 모든 계좌의 입출금 ÷ 총잔액 — 운영계좌 거래가 아직 연동되지 않았을 때도 흐름을 볼 수 있다
+   */
+  async cashBurn(user: AuthUser, months = 12) {
+    this.scope.assertTreasury(user);
+    const cid = user.companyId;
+    const n = Math.min(Math.max(Math.trunc(months) || 12, BURN_BASIS_MONTHS + 1), 36);
+    const today = todaySeoul();
+    const curYm = today.slice(0, 7);
+    const ymList = Array.from({ length: n }, (_, i) => shiftYm(curYm, i - (n - 1)));
+    const [accounts, kpi] = await Promise.all([
+      this.prisma.bankAccount.findMany({ where: { companyId: cid, isActive: true }, select: { id: true, openingBalance: true, isRestricted: true } }),
+      this.treasuryKpi(user),
+    ]);
+    const [available, all] = await Promise.all([
+      this.burnFor(accounts.filter((a) => !a.isRestricted), kpi.availableCash, ymList, curYm),
+      this.burnFor(accounts, kpi.totalBalance, ymList, curYm),
+    ]);
+    return { asOf: today, available, all };
+  }
+
+  /**
+   * 한 계좌 묶음의 월별 입출금 · Burn · Runway.
+   *  - 평균은 '완전히 기록된' 최근 BURN_BASIS_MONTHS 개월: 진행 중인 이번 달과,
+   *    은행거래가 처음 들어온 달(달 중간부터 기록돼 반쪽)과 그 이전 달(데이터 없음)은 뺀다.
+   *  - 우리 계좌끼리 옮긴 돈은 입출금이 아니다: '계좌 이체'로 분류된 거래 + 같은 금액이 36시간 안에
+   *    묶음 안의 한 계좌에서 나가고 다른 계좌로 들어온 짝을 제외한다. 제외(IGNORED) 처리된 거래도 뺀다.
+   *  - 월말 잔액은 통장 잔액 그대로(모든 거래 반영).
+   */
+  private async burnFor(accounts: { id: string; openingBalance: bigint }[], cash: bigint, ymList: string[], curYm: string) {
+    const accountIds = accounts.map((a) => a.id);
+    const start = new Date(`${ymList[0]}-01T00:00:00+09:00`);
+    const [before, txns, first] = await Promise.all([
+      this.prisma.bankTransaction.groupBy({ by: ['direction'], where: { bankAccountId: { in: accountIds }, txnAt: { lt: start } }, _sum: { amount: true } }),
+      this.prisma.bankTransaction.findMany({
+        where: { bankAccountId: { in: accountIds }, txnAt: { gte: start } },
+        select: { id: true, bankAccountId: true, txnAt: true, direction: true, amount: true, classification: { select: { status: true, journalEntry: { select: { type: true, status: true } } } } },
+        orderBy: { txnAt: 'asc' },
+      }),
+      this.prisma.bankTransaction.aggregate({ where: { bankAccountId: { in: accountIds } }, _min: { txnAt: true } }),
+    ]);
+
+    // 내부 이체 판별 — 분류된 계좌 이체 + 금액·시각이 맞는 출금/입금 짝
+    const transfer = new Set<string>();
+    for (const t of txns) {
+      const je = t.classification?.journalEntry;
+      if (je?.type === 'TRANSFER' && je.status !== 'VOID') transfer.add(t.id);
+    }
+    const PAIR_WINDOW_MS = 36 * 3600 * 1000;
+    const live = txns.filter((t) => t.classification?.status !== 'IGNORED');
+    const paired = new Set<string>();
+    for (const out of live) {
+      if (out.direction !== 'OUT' || paired.has(out.id)) continue;
+      const match = live.find((inn) => inn.direction === 'IN' && !paired.has(inn.id) && inn.bankAccountId !== out.bankAccountId && inn.amount === out.amount && Math.abs(inn.txnAt.getTime() - out.txnAt.getTime()) <= PAIR_WINDOW_MS);
+      if (match) {
+        paired.add(out.id);
+        paired.add(match.id);
+        transfer.add(out.id);
+        transfer.add(match.id);
+      }
+    }
+
+    let balance = sum(accounts.map((a) => a.openingBalance)) + (before.find((b) => b.direction === 'IN')?._sum.amount ?? 0n) - (before.find((b) => b.direction === 'OUT')?._sum.amount ?? 0n);
+    const byYm = new Map(ymList.map((ym) => [ym, { in: 0n, out: 0n, all: 0n }]));
+    let transferCount = 0;
+    let transferAmount = 0n;
+    for (const t of txns) {
+      const m = byYm.get(seoulYm(t.txnAt));
+      if (!m) continue;
+      m.all += t.direction === 'IN' ? t.amount : -t.amount;
+      if (t.classification?.status === 'IGNORED') continue;
+      if (transfer.has(t.id)) {
+        if (t.direction === 'OUT') {
+          transferCount++;
+          transferAmount += t.amount;
+        }
+        continue;
+      }
+      if (t.direction === 'IN') m.in += t.amount;
+      else m.out += t.amount;
+    }
+    const firstYm = first._min.txnAt ? seoulYm(first._min.txnAt) : null;
+    const monthly = ymList.map((ym) => {
+      const m = byYm.get(ym)!;
+      balance += m.all;
+      return { month: ym, in: m.in, out: m.out, net: m.in - m.out, endBalance: balance, current: ym === curYm, firstPartial: ym === firstYm, noData: firstYm === null || ym < firstYm };
+    });
+
+    const basis = monthly.filter((m) => !m.current && !m.firstPartial && !m.noData).slice(-BURN_BASIS_MONTHS);
+    const k = BigInt(basis.length || 1);
+    const avgIn = basis.length ? sum(basis.map((m) => m.in)) / k : null;
+    const grossBurn = basis.length ? sum(basis.map((m) => m.out)) / k : null;
+    const netBurn = avgIn !== null && grossBurn !== null ? grossBurn - avgIn : null;
+
+    let status: 'NO_DATA' | 'NO_BURN' | 'DANGER' | 'WARN' | 'GOOD';
+    let runwayMonths: number | null = null;
+    let depletionDate: string | null = null;
+    if (netBurn === null) status = 'NO_DATA';
+    else if (netBurn <= 0n) status = 'NO_BURN';
+    else {
+      runwayMonths = cash <= 0n ? 0 : Number((cash * 10n) / netBurn) / 10;
+      status = runwayMonths < 3 ? 'DANGER' : runwayMonths < 6 ? 'WARN' : 'GOOD';
+      const days = Math.round(runwayMonths * 30.44);
+      depletionDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(Date.now() + days * 86400000));
+    }
+
+    return {
+      cash, accountCount: accounts.length, firstMonth: firstYm, basisMonths: basis.map((m) => m.month),
+      avgIn, grossBurn, netBurn, runwayMonths, depletionDate, status,
+      excludedTransfers: { count: transferCount, amount: transferAmount },
+      monthly,
+    };
+  }
 }
+
+/** Burn 평균에 쓰는 완료된 달 수 */
+const BURN_BASIS_MONTHS = 3;
+/** 'YYYY-MM' 에서 d 개월 이동 */
+const shiftYm = (ym: string, d: number) => {
+  const t = Number(ym.slice(0, 4)) * 12 + Number(ym.slice(5, 7)) - 1 + d;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`;
+};
+/** 시각 → 서울 기준 'YYYY-MM' */
+const seoulYm = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(d).slice(0, 7);

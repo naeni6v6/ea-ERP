@@ -85,11 +85,13 @@ export function ChangePasswordScreen({ navigation }: Props) {
 const s = StyleSheet.create({
   input: {
     minHeight: 54,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: colors.card,
     paddingHorizontal: 16,
     fontSize: 16,
     color: colors.ink,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     ...sh.card,
   },
 });

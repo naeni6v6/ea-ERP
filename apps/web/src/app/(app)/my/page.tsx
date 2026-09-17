@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
 import { seoulYmd, todaySeoul, WEEKDAY } from '@/lib/format';
+import { holidayName, holidayShort } from '@/lib/holidays';
 import { Empty, ErrorBox, Section, Spinner, StatusBadge } from '@/components/ui';
 import { parseLog, pendingLogItems, serializeLog, withItemDone, type LogItem, type PendingLogItem } from '@/lib/worklog';
 import type { Task, UserRow, WorkLog } from '@/lib/types';
@@ -78,7 +79,7 @@ function DailyDoneChart({
             className={`flex flex-1 flex-col items-center gap-1 rounded-lg pb-1.5 pt-1 transition-colors ${
               selected === d.key ? 'bg-brand-soft ring-1 ring-brand/30' : 'hover:bg-line-soft/70'
             }`}
-            title={`${d.key} · 완료 ${d.count}건 — 클릭하면 이 날짜의 업무 일지를 봅니다`}
+            title={`${d.key}${holidayName(d.key) ? ` (${holidayName(d.key)})` : ''} · 완료 ${d.count}건 — 클릭하면 이 날짜의 업무 일지를 봅니다`}
           >
             <span className={`font-num text-[11px] leading-none ${d.count ? 'text-ink-mute' : 'text-transparent'}`}>
               {d.count}
@@ -104,7 +105,7 @@ function DailyDoneChart({
             </span>
             <span
               className={`text-[10px] leading-none ${
-                d.wd === 0 ? 'text-red-400' : d.wd === 6 ? 'text-blue-400' : 'text-ink-faint'
+                d.wd === 0 || holidayName(d.key) ? 'text-red-400' : d.wd === 6 ? 'text-blue-400' : 'text-ink-faint'
               }`}
             >
               {WEEKDAY[d.wd]}
@@ -118,7 +119,7 @@ function DailyDoneChart({
 
 /**
  * 업무 일지 캘린더 — 월 단위로 일지 작성 현황을 한눈에 보고, 날짜를 클릭해 그날 기록으로 이동한다.
- * 월요일 시작, 토=파랑·일=빨강. 일지가 있는 날은 건수 칩으로 표시.
+ * 월요일 시작, 토=파랑·일/공휴일=빨강(공휴일 이름은 날짜 아래). 일지가 있는 날은 건수 칩으로 표시.
  */
 function WorkLogCalendar({
   scope,
@@ -203,23 +204,32 @@ function WorkLogCalendar({
           const count = c.key ? (byDay.get(c.key) ?? 0) : 0;
           const isSel = c.key === selected;
           const isToday = c.key === today;
+          const holiday = c.key ? holidayName(c.key) : null;
+          const dow = i % 7; // 0=월 … 5=토, 6=일
+          // 빨간날 = 일요일·공휴일, 토요일은 파랑 (오늘은 브랜드색이 우선)
+          const dayTone = c.muted
+            ? 'text-ink-faint/50'
+            : isToday
+              ? 'font-bold text-brand-deep'
+              : holiday || dow === 6
+                ? 'font-semibold text-red-500'
+                : dow === 5
+                  ? 'text-blue-500'
+                  : 'text-ink-soft';
           return (
             <button
               key={i}
               disabled={!c.key}
               onClick={() => c.key && onSelect(c.key)}
-              className={`flex h-12 flex-col items-center gap-0.5 rounded-lg pt-1 transition-colors ${
+              className={`flex h-14 flex-col items-center gap-0.5 rounded-lg pt-1 transition-colors ${
                 isSel ? 'bg-brand-soft ring-1 ring-brand/40' : c.key ? 'hover:bg-line-soft/80' : ''
               }`}
-              title={c.key ? `${c.key}${count ? ` · 일지 ${count}건` : ''}` : undefined}
+              title={c.key ? `${c.key}${holiday ? ` · ${holiday}` : ''}${count ? ` · 일지 ${count}건` : ''}` : undefined}
             >
-              <span
-                className={`font-num text-xs leading-none ${
-                  c.muted ? 'text-ink-faint/50' : isToday ? 'font-bold text-brand-deep' : 'text-ink-soft'
-                }`}
-              >
-                {c.day}
-              </span>
+              <span className={`font-num text-xs leading-none ${dayTone}`}>{c.day}</span>
+              {holiday && (
+                <span className="max-w-full truncate px-0.5 text-[9px] leading-none text-red-500">{holidayShort(holiday)}</span>
+              )}
               {count > 0 && (
                 <span className="rounded border border-viz/40 bg-viz-soft px-1 font-num text-[10px] font-semibold leading-tight text-viz-deep">
                   {scope === 'all' ? count : '✓'}

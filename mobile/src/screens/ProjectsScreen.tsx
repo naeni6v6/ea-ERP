@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../components/themed';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,9 +9,9 @@ import type { Project } from '../api/types';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { DelayedBadge, StatusBadge } from '../components/StatusBadge';
 import { Progress } from '../components/Progress';
-import { Empty, ErrorView, Spinner } from '../components/ui';
-import { num } from '../lib/money';
-import { colors, ft, numFont, sh } from '../theme';
+import { Chip, Empty, ErrorView, Spinner } from '../components/ui';
+import { compact, num } from '../lib/money';
+import { card, colors, ft, numFont, tight } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 const FILTERS = [
@@ -38,18 +39,17 @@ export function ProjectsScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <OfflineBanner dataUpdatedAt={q.dataUpdatedAt || undefined} />
 
-      <View style={s.filterRow}>
-        {FILTERS.map((f) => {
-          const on = filter === f.code;
-          return (
-            <Pressable key={f.code} onPress={() => setFilter(f.code)} style={[s.filterChip, on && s.filterOn]} hitSlop={4}>
-              <Text style={[{ fontSize: 13, color: on ? '#fff' : colors.inkMute }, on ? ft.bold : ft.semibold]}>
-                {f.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* 상태 필터 — 가로로 넘겨 본다 (좁은 화면에서 줄바꿈되지 않게) */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.filterScroll}
+        contentContainerStyle={s.filterRow}
+      >
+        {FILTERS.map((f) => (
+          <Chip key={f.code} label={f.label} on={filter === f.code} onPress={() => setFilter(f.code)} />
+        ))}
+      </ScrollView>
 
       {q.isLoading ? (
         <Spinner />
@@ -64,32 +64,38 @@ export function ProjectsScreen() {
         <FlatList
           data={rows}
           keyExtractor={(p) => p.id}
-          contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 16, paddingTop: 6, gap: 10, paddingBottom: 32 }}
           refreshControl={
             <RefreshControl refreshing={q.isFetching && !q.isLoading} onRefresh={() => q.refetch()} tintColor={colors.brand} />
           }
           renderItem={({ item: p }) => (
-            <Pressable style={s.card} onPress={() => nav.navigate('ProjectDetail', { projectId: p.id, name: p.name })}>
+            <Pressable
+              style={({ pressed }) => [s.card, pressed && { opacity: 0.9 }]}
+              onPress={() => nav.navigate('ProjectDetail', { projectId: p.id, name: p.name })}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <StatusBadge kind="PROJECT_STATUS" code={p.status} />
                 {p.isDelayed && <DelayedBadge />}
                 <Text style={[s.code, numFont]}>{p.code}</Text>
               </View>
-              <Text style={[s.name, ft.bold]} numberOfLines={1}>
-                {p.name}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[s.name, ft.extrabold, tight]} numberOfLines={1}>
+                  {p.name}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
+              </View>
               {!!p.goal && (
                 <Text style={s.goal} numberOfLines={2}>
                   {p.goal}
                 </Text>
               )}
-              <View style={{ marginTop: 8 }}>
+              <View style={{ marginTop: 6 }}>
                 <Progress value={p.progress} />
               </View>
-              <View style={s.metaBox}>
-                <MetaRow label="기간" value={fmtRange(p.startDate, p.planEndDate)} />
-                <MetaRow label="담당" value={[p.leadDepartment?.name, p.owner?.name].filter(Boolean).join(' · ') || '—'} />
-                <MetaRow label="수주금액" value={`${num(p.contractAmount)}원`} numeric />
+              <View style={s.metaRow}>
+                <Meta icon="calendar-outline" text={fmtRange(p.startDate, p.planEndDate)} />
+                <Meta icon="person-outline" text={[p.leadDepartment?.name, p.owner?.name].filter(Boolean).join(' · ') || '담당 미정'} />
+                <Meta icon="cash-outline" text={`${compact(p.contractAmount)}원`} numeric title={`${num(p.contractAmount)}원`} />
               </View>
             </Pressable>
           )}
@@ -99,47 +105,48 @@ export function ProjectsScreen() {
   );
 }
 
-const sd = (iso: string | null): string => (iso ? iso.slice(0, 10).replace(/-/g, '.') : '—');
+const sd = (iso: string | null): string => (iso ? iso.slice(2, 10).replace(/-/g, '.') : '미정');
 const fmtRange = (a: string | null, b: string | null) => `${sd(a)} ~ ${sd(b)}`;
 
-function MetaRow({ label, value, numeric }: { label: string; value: string; numeric?: boolean }) {
+function Meta({
+  icon,
+  text,
+  numeric,
+  title,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  text: string;
+  numeric?: boolean;
+  title?: string;
+}) {
   return (
-    <View style={{ flexDirection: 'row', gap: 8 }}>
-      <Text style={s.metaLabel}>{label}</Text>
-      <Text style={[s.metaValue, numeric && numFont]} numberOfLines={1}>
-        {value}
+    <View style={s.meta} accessibilityLabel={title}>
+      <Ionicons name={icon} size={13} color={colors.inkFaint} />
+      <Text style={[s.metaText, numeric && numFont]} numberOfLines={1}>
+        {text}
       </Text>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  // 가로 스크롤뷰는 세로 flex에 눌려 칩이 잘릴 수 있어 높이를 못 박는다 (칩 34 + 위아래 여백 10)
+  filterScroll: { flexGrow: 0, flexShrink: 0, height: 54 },
   filterRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: colors.bg,
   },
-  filterChip: {
-    minHeight: 36,
-    justifyContent: 'center',
-    paddingHorizontal: 13,
-    borderRadius: 18,
-    backgroundColor: colors.fill,
-  },
-  filterOn: { backgroundColor: colors.ink },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    padding: 15,
+    padding: 16,
     gap: 6,
-    ...sh.card,
+    ...card,
   },
   code: { marginLeft: 'auto', fontSize: 12, color: colors.inkFaint },
-  name: { fontSize: 16, color: colors.ink },
+  name: { flex: 1, fontSize: 17, color: colors.ink },
   goal: { fontSize: 13, lineHeight: 19, color: colors.inkMute },
-  metaBox: { marginTop: 8, gap: 4 },
-  metaLabel: { width: 58, fontSize: 12.5, color: colors.inkFaint },
-  metaValue: { flex: 1, fontSize: 12.5, color: colors.inkMute },
+  metaRow: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6, columnGap: 12 },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' },
+  metaText: { fontSize: 12.5, color: colors.inkMute, flexShrink: 1 },
 });

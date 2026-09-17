@@ -151,9 +151,11 @@ const s = StyleSheet.create({
   },
   infoBox: {
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     ...sh.card,
   },
   fieldLabel: { fontSize: 14, ...ft.bold, color: colors.ink },

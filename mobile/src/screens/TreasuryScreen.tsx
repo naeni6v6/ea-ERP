@@ -1,5 +1,6 @@
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../components/themed';
 import {
   useBankAccounts,
@@ -11,9 +12,9 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { Kpi, KpiGrid } from '../components/Kpi';
-import { Empty, ErrorView, Spinner } from '../components/ui';
+import { CardTitle, Empty, ErrorView, Section, Spinner } from '../components/ui';
 import { big, num, won } from '../lib/money';
-import { colors, ft, numFont, sh } from '../theme';
+import { card, colors, ft, numFont } from '../theme';
 
 const sd = (iso: string) => iso.slice(0, 10).replace(/-/g, '.');
 
@@ -47,7 +48,7 @@ export function TreasuryScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <OfflineBanner dataUpdatedAt={dash.dataUpdatedAt || undefined} />
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, gap: 22, paddingBottom: 40 }}
         refreshControl={
           <RefreshControl refreshing={dash.isFetching && !dash.isLoading} onRefresh={refresh} tintColor={colors.brand} />
         }
@@ -70,8 +71,8 @@ export function TreasuryScreen() {
               </KpiGrid>
               {/* 자금 예측 — 웹 treasury의 7/30/90일 전망 */}
               <View style={s.card}>
-                <Text style={[s.cardTitle, ft.bold]}>자금 예측</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+                <CardTitle>자금 예측</CardTitle>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                   {(
                     [
                       ['7일 뒤', t.forecast.d7],
@@ -95,10 +96,12 @@ export function TreasuryScreen() {
                 {activeAccounts.map((a, i) => (
                   <View key={a.id} style={[s.row, i > 0 && s.rowLine]}>
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={[s.rowMain, ft.semibold]} numberOfLines={1}>
-                        {a.alias}
-                        {a.isRestricted ? ' 🔒' : ''}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Text style={[s.rowMain, ft.semibold]} numberOfLines={1}>
+                          {a.alias}
+                        </Text>
+                        {a.isRestricted && <Ionicons name="lock-closed" size={12} color={colors.inkFaint} />}
+                      </View>
                       <Text style={s.rowSub} numberOfLines={1}>
                         {a.bankName}
                         {a.accountNoMasked ? ` · ${a.accountNoMasked}` : ''}
@@ -110,7 +113,7 @@ export function TreasuryScreen() {
                 ))}
                 <View style={s.totalRow}>
                   <Text style={[{ fontSize: 13, color: colors.inkMute }, ft.semibold]}>합계</Text>
-                  <Text style={[{ fontSize: 14.5, color: colors.ink }, ft.extrabold, numFont]}>{won(totalBalance)}</Text>
+                  <Text style={[{ fontSize: 15, color: colors.ink }, ft.extrabold, numFont]}>{won(totalBalance)}</Text>
                 </View>
               </View>
             </Section>
@@ -148,7 +151,7 @@ export function TreasuryScreen() {
                             {p.title}
                           </Text>
                           <View style={[s.kindTag, { backgroundColor: p.kind === 'CONFIRMED' ? colors.negSoft : colors.bgSoft }]}>
-                            <Text style={[{ fontSize: 10, color: p.kind === 'CONFIRMED' ? colors.neg : colors.inkMute }, ft.bold]}>
+                            <Text style={[{ fontSize: 10.5, color: p.kind === 'CONFIRMED' ? colors.neg : colors.inkMute }, ft.bold]}>
                               {p.kind === 'CONFIRMED' ? '확정' : '계획'}
                             </Text>
                           </View>
@@ -195,32 +198,15 @@ export function TreasuryScreen() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View style={s.titleBar} />
-        <Text style={[s.sectionTitle, ft.extrabold]}>{title}</Text>
-      </View>
-      {children}
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
-  titleBar: { width: 4, height: 16, borderRadius: 2, backgroundColor: colors.brand },
-  sectionTitle: { fontSize: 17, color: colors.ink },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    padding: 14,
-    gap: 2,
-    ...sh.card,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    ...card,
   },
-  cardTitle: { fontSize: 13.5, color: colors.ink, marginBottom: 6 },
-  forecastCell: { flex: 1, backgroundColor: colors.bgSoft, borderRadius: 12, padding: 10, gap: 3 },
+  forecastCell: { flex: 1, backgroundColor: colors.bgSoft, borderRadius: 12, padding: 10, gap: 3, marginBottom: 6 },
   forecastVal: { fontSize: 12.5 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
   rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
   rowMain: { flexShrink: 1, fontSize: 14, color: colors.ink },
   rowSub: { fontSize: 11.5, color: colors.inkFaint, marginTop: 2 },
@@ -231,8 +217,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: colors.line,
-    paddingTop: 10,
-    marginTop: 4,
+    paddingVertical: 10,
+    marginTop: 2,
   },
   kindTag: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
   foot: { textAlign: 'center', fontSize: 11.5, color: colors.inkFaint },

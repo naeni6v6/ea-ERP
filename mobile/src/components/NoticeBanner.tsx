@@ -148,19 +148,12 @@ export function NoticeBanner() {
         end={{ x: 1, y: 0.5 }}
         style={s.cardBody}
       >
-        {/* 장식 — 웹과 동일한 점 격자와 은은한 원 */}
-        <View style={s.dots} pointerEvents="none">
-          {Array.from({ length: 24 }, (_, i) => (
-            <View key={i} style={s.dot} />
-          ))}
-        </View>
-        <View style={s.deco} pointerEvents="none" />
 
         <View style={s.head}>
           {/* 아이콘 타일 — 웹 from-red-500 to-red-600 그라데이션 + 하이라이트 */}
           <LinearGradient colors={['#ef4444', '#dc2626']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.iconTile}>
             <View style={s.iconShine} pointerEvents="none" />
-            <Ionicons name="megaphone-outline" size={24} color="#fff" />
+            <Ionicons name="megaphone-outline" size={22} color="#fff" />
           </LinearGradient>
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -193,49 +186,28 @@ const s = StyleSheet.create({
   },
   /* 웹 shadow-[0_10px_30px_-18px_rgba(207,75,60,0.55)] — 그림자는 바깥, 클리핑은 안쪽 */
   cardShadow: {
-    borderRadius: 18,
+    borderRadius: 20,
     backgroundColor: '#fff1ec',
     shadowColor: '#cf4b3c',
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.22,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
   },
   cardBody: {
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
     padding: 16,
     gap: 14,
     borderWidth: 1,
     borderColor: '#fee2e2', // 웹 border-red-100
   },
-  /* 점 격자 — 웹 radial-gradient dots (red-200/70) */
-  dots: {
-    position: 'absolute',
-    right: 60,
-    top: 14,
-    width: 76,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-  },
-  dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(254,202,202,0.9)' },
-  /* 은은한 원 — 웹 bottom-right red-100/60 원 */
-  deco: {
-    position: 'absolute',
-    right: -34,
-    bottom: -70,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(254,226,226,0.55)',
-  },
   head: { flexDirection: 'row', gap: 13 },
   /* 웹 h-16 w-16 rounded-2xl 그라데이션 타일 + 좌상단 하이라이트 */
   iconTile: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

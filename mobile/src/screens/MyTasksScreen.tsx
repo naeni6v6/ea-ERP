@@ -18,7 +18,7 @@ import type { Task, WorkLog } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { StatusBadge } from '../components/StatusBadge';
-import { Empty, ErrorView, Spinner } from '../components/ui';
+import { Empty, ErrorView, Section, Spinner } from '../components/ui';
 import { kstYmd, lastDayOf, shiftMonth, shortDateLabel, todaySeoul } from '../lib/dates';
 import { colors, ft, numFont, sh } from '../theme';
 
@@ -155,19 +155,6 @@ export function MyTasksScreen() {
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
-  );
-}
-
-/* ── 섹션 머리 — 대시보드와 같은 브랜드 세로바 ── */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View style={s.titleBar} />
-        <Text style={[s.sectionTitle, ft.extrabold]}>{title}</Text>
-      </View>
-      {children}
-    </View>
   );
 }
 
@@ -600,15 +587,15 @@ function TaskRow({
 }
 
 const s = StyleSheet.create({
-  titleBar: { width: 4, height: 16, borderRadius: 2, backgroundColor: colors.brand },
-  sectionTitle: { fontSize: 17, color: colors.ink },
   summary: { fontSize: 14, color: colors.inkMute, marginTop: -6 },
   errBox: { backgroundColor: colors.negSoft, borderRadius: 12, padding: 11 },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 14,
     gap: 10,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     ...sh.card,
   },
 
@@ -627,8 +614,10 @@ const s = StyleSheet.create({
     minHeight: 36,
     justifyContent: 'center',
     paddingHorizontal: 13,
-    borderRadius: 18,
+    borderRadius: 20,
     backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     ...sh.card,
   },
 

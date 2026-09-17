@@ -1,8 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from './themed';
+import { StyleSheet, View } from 'react-native';
+import { Chip } from './ui';
 import { lastDayOf, shiftMonth, todaySeoul } from '../lib/dates';
-import { colors, ft } from '../theme';
 
 export type PeriodKey = 'this_month' | 'last_month' | 'recent_3m' | 'this_year';
 
@@ -29,28 +28,13 @@ export function resolvePeriod(key: PeriodKey): { from: string; to: string } {
 export function PeriodChips({ value, onChange }: { value: PeriodKey; onChange: (k: PeriodKey) => void }) {
   return (
     <View style={s.row}>
-      {PERIODS.map((p) => {
-        const on = p.key === value;
-        return (
-          <Pressable key={p.key} onPress={() => onChange(p.key)} style={[s.chip, on && s.chipOn]} hitSlop={4}>
-            <Text style={[{ fontSize: 13, color: on ? '#fff' : colors.inkMute }, on ? ft.bold : ft.semibold]}>
-              {p.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {PERIODS.map((p) => (
+        <Chip key={p.key} label={p.label} on={p.key === value} onPress={() => onChange(p.key)} />
+      ))}
     </View>
   );
 }
 
 const s = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  chip: {
-    minHeight: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 13,
-    borderRadius: 17,
-    backgroundColor: colors.fill,
-  },
-  chipOn: { backgroundColor: colors.ink },
 });

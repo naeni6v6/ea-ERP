@@ -7,9 +7,9 @@ import type { Pnl } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { PeriodChips, resolvePeriod, type PeriodKey } from '../components/PeriodChips';
-import { Empty, ErrorView, Spinner } from '../components/ui';
+import { CardTitle, Chip, Empty, ErrorView, Spinner } from '../components/ui';
 import { big, num } from '../lib/money';
-import { colors, ft, numFont, sh } from '../theme';
+import { card, colors, ft, numFont } from '../theme';
 
 /** 손익계산서 행 정의 — 웹 pnl/page.tsx ROWS와 1:1 */
 const ROWS: { key: keyof Pnl; label: string; strong?: boolean; indent?: boolean; minus?: boolean }[] = [
@@ -129,19 +129,12 @@ export function PnlScreen() {
 
             {/* ── 분해 보기 ── */}
             <View style={s.card}>
-              <Text style={[s.cardTitle, ft.bold]}>분해 보기</Text>
+              <CardTitle>분해 보기</CardTitle>
               <Text style={s.desc}>공통비는 배부하지 않습니다. 축이 없는 라인은 (미지정)으로 모입니다</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-                {GROUPS.map((g) => {
-                  const on = groupBy === g.key;
-                  return (
-                    <Pressable key={g.key} onPress={() => setGroupBy(g.key)} style={[s.groupChip, on && { backgroundColor: colors.brandSoft }]}>
-                      <Text style={[{ fontSize: 12.5, color: on ? colors.brandDeep : colors.inkMute }, on ? ft.bold : ft.semibold]}>
-                        {g.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {GROUPS.map((g) => (
+                  <Chip key={g.key} label={g.label} on={groupBy === g.key} onPress={() => setGroupBy(g.key)} />
+                ))}
               </View>
 
               {bd.isLoading ? (
@@ -177,11 +170,9 @@ export function PnlScreen() {
 const s = StyleSheet.create({
   range: { fontSize: 12, color: colors.inkFaint, marginTop: -4 },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    padding: 15,
+    padding: 16,
     gap: 8,
-    ...sh.card,
+    ...card,
   },
   cardTitle: { fontSize: 15, color: colors.ink },
   desc: { fontSize: 11.5, color: colors.inkFaint, marginTop: -4 },
@@ -195,20 +186,13 @@ const s = StyleSheet.create({
   },
   row: { paddingVertical: 8, gap: 2 },
   rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
-  rowStrong: { backgroundColor: colors.bgSoft, marginHorizontal: -15, paddingHorizontal: 15, borderRadius: 0 },
+  rowStrong: { backgroundColor: colors.bgSoft, marginHorizontal: -16, paddingHorizontal: 16, borderRadius: 0 },
   rowLabel: { fontSize: 13.5, color: colors.ink },
   rowIndent: { paddingLeft: 16, color: colors.inkMute },
   rowNum: { fontSize: 13.5, color: colors.ink },
   yoyLine: { fontSize: 11.5, color: colors.inkFaint, textAlign: 'right' },
   marginFoot: { borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 9, marginTop: 2 },
   marginText: { fontSize: 12, color: colors.inkMute },
-  groupChip: {
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: 11,
-    borderRadius: 16,
-    backgroundColor: colors.fill,
-  },
   bdSub: { fontSize: 11.5, color: colors.inkFaint },
   bdFoot: { fontSize: 10.5, color: colors.inkFaint, textAlign: 'right' },
 });

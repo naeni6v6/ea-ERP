@@ -402,12 +402,14 @@ const s = StyleSheet.create({
   },
   row: {
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     marginHorizontal: 16,
     marginBottom: 8,
     paddingHorizontal: 14,
     paddingVertical: 13,
     gap: 10,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     ...sh.card,
   },
   checkbox: {

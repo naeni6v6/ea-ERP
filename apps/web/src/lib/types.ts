@@ -73,6 +73,10 @@ export interface UserRow {
   isActive: boolean;
   department?: { id: string; name: string } | null;
   roleScopes?: RoleScope[];
+  /** 대표 > 관리자 > 직원 중 가장 높은 권한 (서버 계산) */
+  role?: Role;
+  /** 진행 중(미완료) 배정 업무 수 */
+  openTaskCount?: number;
 }
 
 export interface Pnl {
@@ -149,6 +153,43 @@ export interface ProjectsKpi {
   atRisk: number;
   taskCompletionPct: number;
   projects: ProjectKpiRow[];
+}
+
+/** Burn Rate · Runway — GET /metrics/burn (대표 전용) */
+export type BurnStatus = 'NO_DATA' | 'NO_BURN' | 'DANGER' | 'WARN' | 'GOOD';
+export interface BurnMonth {
+  month: string; // 'YYYY-MM'
+  in: string;
+  out: string;
+  net: string;
+  endBalance: string;
+  /** 진행 중인 이번 달 */
+  current: boolean;
+  /** 은행거래가 달 중간부터 기록된 첫 달 */
+  firstPartial: boolean;
+  /** 은행거래 기록이 시작되기 전 */
+  noData: boolean;
+}
+export interface BurnScope {
+  cash: string;
+  accountCount: number;
+  firstMonth: string | null;
+  basisMonths: string[];
+  avgIn: string | null;
+  grossBurn: string | null;
+  netBurn: string | null;
+  runwayMonths: number | null;
+  depletionDate: string | null;
+  status: BurnStatus;
+  excludedTransfers: { count: number; amount: string };
+  monthly: BurnMonth[];
+}
+export interface CashBurn {
+  asOf: string;
+  /** 운영계좌 입출금 ÷ 가용현금 */
+  available: BurnScope;
+  /** 모든 계좌 입출금 ÷ 총잔액 */
+  all: BurnScope;
 }
 
 export interface Dashboard {

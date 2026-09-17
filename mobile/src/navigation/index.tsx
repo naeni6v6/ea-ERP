@@ -22,7 +22,7 @@ import { ExpenseDetailScreen } from '../screens/ExpenseDetailScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { Spinner } from '../components/ui';
 import { ApprovalBell, LogoTitle } from '../components/HomeHeader';
-import { HEADER_TINT, HeaderTitle, TabBackButton } from '../components/ScreenHeader';
+import { HeaderTitle, TabBackButton } from '../components/ScreenHeader';
 import { colors, ft, sh } from '../theme';
 import type { MainTabParamList, RootStackParamList } from './types';
 import { View } from 'react-native';
@@ -42,14 +42,19 @@ const navTheme = {
   },
 };
 
+/** 탭 아이콘 — 선택되면 같은 모양의 채운 아이콘으로 바뀐다 (outline → filled) */
 const TAB_ICON: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> = {
   Home: 'home-outline',
   Submit: 'card-outline',
   Projects: 'briefcase-outline',
   Approvals: 'shield-checkmark-outline',
   MyTasks: 'clipboard-outline',
-  Menu: 'menu-outline',
+  Menu: 'grid-outline',
 };
+const filledIcon = (name: keyof typeof Ionicons.glyphMap) =>
+  name.replace(/-outline$/, '') as keyof typeof Ionicons.glyphMap;
+
+const badgeStyle = { ...ft.semibold, backgroundColor: colors.neg, color: '#fff', fontSize: 11 };
 
 function Tabs() {
   const { isCeo } = useAuth();
@@ -64,31 +69,32 @@ function Tabs() {
       // ← 뒤로가기가 '직전에 보던 탭'으로 돌아가게 방문 기록을 쓴다
       backBehavior="history"
       screenOptions={({ route }) => ({
-        // 아이콘·라벨은 기본값보다 한 단계 작게 — 탭바가 꽉 차 보이지 않게
-        tabBarIcon: ({ color }) => <Ionicons name={TAB_ICON[route.name]} color={color} size={21} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? filledIcon(TAB_ICON[route.name]) : TAB_ICON[route.name]} color={color} size={22} />
+        ),
         tabBarActiveTintColor: colors.brandDeep,
         tabBarInactiveTintColor: colors.inkFaint,
-        headerTitleStyle: { ...ft.extrabold, color: colors.ink, fontSize: 21, letterSpacing: -0.3 },
+        headerTitleStyle: { ...ft.extrabold, color: colors.ink, fontSize: 22, letterSpacing: -0.4 },
         headerTitleAlign: 'left',
         headerShadowVisible: false,
-        // iOS 내비게이션 바 — 본문보다 한 겹 위에 뜬 흰 면
+        // 내비게이션 바 — 본문과 같은 바탕색에 얇은 경계선만. 흰 띠가 따로 떠 있지 않아 화면이 한 장으로 읽힌다
         headerStyle: {
-          backgroundColor: colors.card,
-          shadowColor: '#2a2724',
-          shadowOpacity: 0.06,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 3 },
-          elevation: 3,
+          backgroundColor: colors.bg,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.line,
+          shadowOpacity: 0,
+          elevation: 0,
         },
-        // iOS 탭바 — 경계선 대신 흰 면 + 은은한 그림자
+        // 탭바 — 경계선 대신 흰 면 + 은은한 그림자
         tabBarStyle: {
           borderTopWidth: 0,
           backgroundColor: colors.card,
+          paddingTop: 6,
           ...sh.lift,
         },
         tabBarIconStyle: { marginBottom: -2 },
         // 탭 라벨·배지는 내비게이션이 자체 스타일을 쓰므로 Pretendard를 직접 지정한다
-        tabBarLabelStyle: { ...ft.semibold, fontSize: 10 },
+        tabBarLabelStyle: { ...ft.semibold, fontSize: 10.5 },
       })}
     >
       <Tab.Screen
@@ -97,7 +103,7 @@ function Tabs() {
         options={{
           title: '홈',
           // 맨 상단은 웹처럼 검은 띠(shell) — 로고가 그 위에 얹힌다
-          headerStyle: { backgroundColor: colors.shell },
+          headerStyle: { backgroundColor: colors.shell, borderBottomWidth: 0, shadowOpacity: 0, elevation: 0 },
           headerTitle: () => <LogoTitle />,
           headerTitleAlign: 'left',
           headerRight: () => <ApprovalBell />,
@@ -108,9 +114,9 @@ function Tabs() {
         component={ExpensesScreen}
         options={{
           title: '지출',
-          headerTitle: () => <HeaderTitle title="지출" icon="card-outline" tint={HEADER_TINT.brand} />,
+          headerTitle: () => <HeaderTitle title="지출" />,
           tabBarBadge: unsubCount > 0 ? unsubCount : undefined,
-          tabBarBadgeStyle: { ...ft.semibold, backgroundColor: colors.neg, color: '#fff', fontSize: 11 },
+          tabBarBadgeStyle: badgeStyle,
         }}
       />
       <Tab.Screen
@@ -118,7 +124,7 @@ function Tabs() {
         component={ProjectsScreen}
         options={{
           title: '프로젝트',
-          headerTitle: () => <HeaderTitle title="프로젝트" icon="briefcase-outline" tint={HEADER_TINT.viz} />,
+          headerTitle: () => <HeaderTitle title="프로젝트" />,
         }}
       />
       {isCeo && (
@@ -127,11 +133,9 @@ function Tabs() {
           component={ApprovalsScreen}
           options={{
             title: '승인',
-            headerTitle: () => (
-              <HeaderTitle title="승인함" icon="shield-checkmark-outline" tint={HEADER_TINT.pos} />
-            ),
+            headerTitle: () => <HeaderTitle title="승인함" />,
             tabBarBadge: openCount > 0 ? openCount : undefined,
-            tabBarBadgeStyle: { ...ft.semibold, backgroundColor: colors.neg, color: '#fff', fontSize: 11 },
+            tabBarBadgeStyle: badgeStyle,
           }}
         />
       )}
@@ -141,7 +145,7 @@ function Tabs() {
         options={{
           title: '내 업무',
           headerLeft: () => <TabBackButton />,
-          headerTitle: () => <HeaderTitle title="내 업무" icon="clipboard-outline" tint={HEADER_TINT.warn} />,
+          headerTitle: () => <HeaderTitle title="내 업무" />,
         }}
       />
       {/* 토스의 '전체' 탭 — 웹 사이드바 전체 메뉴. 내 정보도 이 안에서 연다 */}
@@ -150,7 +154,7 @@ function Tabs() {
         component={MenuScreen}
         options={{
           title: '전체',
-          headerTitle: () => <HeaderTitle title="전체 메뉴" icon="menu-outline" tint={HEADER_TINT.neutral} />,
+          headerTitle: () => <HeaderTitle title="전체 메뉴" />,
         }}
       />
     </Tab.Navigator>
@@ -173,13 +177,11 @@ export function RootNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerTitleStyle: { ...ft.extrabold, color: colors.ink, fontSize: 18 },
-          headerTintColor: colors.brandDeep,
+          headerTintColor: colors.ink,
           headerBackButtonDisplayMode: 'minimal',
-          // 탭 화면과 같은 흰 내비게이션 바.
-          // 네이티브 스택은 headerStyle에 backgroundColor만 받으므로,
-          // 경계는 플랫폼 기본 그림자(iOS는 얇은 실선)로 낸다.
-          headerStyle: { backgroundColor: colors.card },
-          headerShadowVisible: true,
+          // 탭 화면과 같은 바탕색 내비게이션 바. 네이티브 스택은 headerStyle에 backgroundColor만 받는다
+          headerStyle: { backgroundColor: colors.bg },
+          headerShadowVisible: false,
         }}
       >
         {state.status === 'signedIn' ? (

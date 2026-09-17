@@ -43,6 +43,9 @@ const config: Config = {
         '2xl': ['1.625rem', { lineHeight: '2.125rem' }], // 24 → 26
         '3xl': ['2rem', { lineHeight: '2.375rem' }], // 30 → 32
       },
+      // html zoom(큰 모니터 확대)이 걸리면 100vh 도 같이 커져 스크롤이 생긴다 — 배율만큼 나눠 창 높이에 맞춘다
+      minHeight: { screen: 'calc(100vh / var(--ui-zoom, 1))' },
+      height: { screen: 'calc(100vh / var(--ui-zoom, 1))' },
       borderRadius: {
         // 전반적으로 한 단계씩 더 둥글게
         md: '0.5rem',

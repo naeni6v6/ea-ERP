@@ -12,6 +12,14 @@
       "runtimeExecutable": "corepack",
       "runtimeArgs": ["pnpm", "--filter", "@ea-erp/api", "dev"],
       "port": 4000
+    },
+    {
+      "name": "mobile-viewer",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--prefix", "mobile", "expo", "start", "--web", "--port", "8082"],
+      "cwd": "mobile",
+      "port": 8082,
+      "autoPort": false
     }
   ]
 }

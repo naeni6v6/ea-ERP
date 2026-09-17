@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../components/themed';
 import { StatusBar } from 'expo-status-bar';
 import { CompositeNavigationProp, useIsFocused, useNavigation } from '@react-navigation/native';
@@ -14,10 +15,10 @@ import { Progress } from '../components/Progress';
 import { CardSummaryItem } from '../components/CardSummaryItem';
 import { ExpenseAnalysis } from '../components/ExpenseAnalysis';
 import { TrendBars } from '../components/TrendBars';
-import { Empty, ErrorView, Spinner } from '../components/ui';
+import { CardTitle, Empty, ErrorView, Section, Spinner } from '../components/ui';
 import { big, won } from '../lib/money';
 import { todaySeoul } from '../lib/dates';
-import { colors, ft, numFont, sh } from '../theme';
+import { card, colors, ft, numFont, tight } from '../theme';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 
 type Nav = CompositeNavigationProp<
@@ -53,7 +54,7 @@ export function DashboardScreen() {
       {focused && <StatusBar style="light" />}
       <OfflineBanner dataUpdatedAt={dash.dataUpdatedAt || undefined} />
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 16, gap: 22, paddingBottom: 32 }}
         refreshControl={
           <RefreshControl
             refreshing={dash.isFetching && !dash.isLoading}
@@ -75,14 +76,11 @@ export function DashboardScreen() {
         ) : d ? (
           <>
             {/* 대표가 매일 가장 먼저 보는 것 — 진행 중인 프로젝트. 웹 홈처럼 맨 위에 둔다 */}
-            <Section title="프로젝트 관리" onMore={() => nav.navigate('Projects')}>
+            <Section title="프로젝트" desc={`전체 업무 완료율 ${Math.round(d.projects.taskCompletionPct)}%`} onMore={() => nav.navigate('Projects')}>
               <View style={s.projRow}>
                 <ProjStat label="전체" value={d.projects.total} />
-                <View style={s.projDivider} />
                 <ProjStat label="진행" value={d.projects.active} color={colors.brandDeep} />
-                <View style={s.projDivider} />
                 <ProjStat label="지연" value={d.projects.delayed} color={d.projects.delayed > 0 ? colors.neg : undefined} />
-                <View style={s.projDivider} />
                 <ProjStat label="위험" value={d.projects.atRisk} color={d.projects.atRisk > 0 ? colors.warn : undefined} />
               </View>
               <View style={s.projListCard}>
@@ -102,14 +100,10 @@ export function DashboardScreen() {
                   </Pressable>
                 )}
               </View>
-              <View style={{ marginTop: 8 }}>
-                <Text style={{ fontSize: 12.5, color: colors.inkFaint, marginBottom: 5 }}>전체 업무 완료율</Text>
-                <Progress value={d.projects.taskCompletionPct} />
-              </View>
             </Section>
 
             {d.pnl && (
-              <Section title="이번 달 손익">
+              <Section title="이번 달 손익" onMore={() => nav.navigate('Pnl')} moreLabel="손익 상세">
                 <KpiGrid>
                   <Kpi label="매출" value={d.pnl.sales} />
                   <Kpi label="매출총이익" value={d.pnl.grossProfit} />
@@ -121,7 +115,7 @@ export function DashboardScreen() {
             )}
 
             {d.treasury && (
-              <Section title="자금 현황">
+              <Section title="자금 현황" onMore={() => nav.navigate('Treasury')} moreLabel="자금 상세">
                 <KpiGrid>
                   <Kpi label="가용현금" value={d.treasury.availableCash} tone="pos" />
                   <Kpi label="경영유보금" value={d.treasury.reserveTotal} />
@@ -130,18 +124,24 @@ export function DashboardScreen() {
                 </KpiGrid>
 
                 <View style={s.subCard}>
-                  <Text style={[s.subTitle, ft.bold]}>계좌 잔액</Text>
-                  {d.treasury.accounts.map((a) => (
-                    <View key={a.id} style={s.acctRow}>
-                      <Text style={s.acctName} numberOfLines={1}>
-                        {a.alias} <Text style={{ color: colors.inkFaint }}>({a.bankName})</Text>
-                        {a.isRestricted ? ' 🔒' : ''}
-                      </Text>
-                      <Text style={[s.acctBal, ft.semibold, numFont]}>{won(a.balance)}</Text>
+                  <CardTitle>계좌 잔액</CardTitle>
+                  {d.treasury.accounts.map((a, i) => (
+                    <View key={a.id} style={[s.acctRow, i > 0 && s.acctRowLine]}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                          <Text style={[s.acctName, ft.semibold]} numberOfLines={1}>
+                            {a.alias}
+                          </Text>
+                          {a.isRestricted && <Ionicons name="lock-closed" size={12} color={colors.inkFaint} />}
+                        </View>
+                        <Text style={s.acctBank} numberOfLines={1}>
+                          {a.bankName}
+                        </Text>
+                      </View>
+                      <Text style={[s.acctBal, ft.bold, numFont]}>{won(a.balance)}</Text>
                     </View>
                   ))}
                 </View>
-
               </Section>
             )}
 
@@ -152,7 +152,7 @@ export function DashboardScreen() {
           </>
         ) : null}
 
-        <Section title="내 카드">
+        <Section title="내 카드" onMore={() => nav.navigate('Submit', { seg: 'card' })} moreLabel="지출 내역">
           {cards.isLoading ? (
             <Spinner />
           ) : !cards.data?.filter((c) => c.isActive).length ? (
@@ -168,32 +168,6 @@ export function DashboardScreen() {
           )}
         </Section>
       </ScrollView>
-    </View>
-  );
-}
-
-function Section({
-  title,
-  children,
-  onMore,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onMore?: () => void;
-}) {
-  return (
-    <View style={{ gap: 10 }}>
-      <View style={s.sectionHead}>
-        {/* 웹 .page-title의 브랜드 세로바 액센트 */}
-        <View style={s.titleBar} />
-        <Text style={[s.sectionTitle, ft.extrabold]}>{title}</Text>
-        {onMore && (
-          <Pressable onPress={onMore} hitSlop={8} style={{ marginLeft: 'auto' }}>
-            <Text style={[{ fontSize: 13, color: colors.brandDeep }, ft.semibold]}>전체 보기 ›</Text>
-          </Pressable>
-        )}
-      </View>
-      {children}
     </View>
   );
 }
@@ -217,20 +191,26 @@ const STATUS_DOT: Record<string, string> = {
 
 function ProjectMiniRow({ row: p, first, onPress }: { row: ProjectKpiRow; first: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[s.miniRow, !first && s.miniRowBorder]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [s.miniRow, !first && s.miniRowBorder, pressed && { opacity: 0.7 }]}>
       <View style={[s.statusDot, { backgroundColor: STATUS_DOT[p.status] ?? colors.inkFaint }]} />
-      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={[s.miniName, ft.semibold]} numberOfLines={1}>
             {p.name}
           </Text>
-          {p.isDelayed && <Text style={[s.miniDelay, ft.bold]}>지연</Text>}
+          {p.isDelayed && (
+            <View style={s.miniDelay}>
+              <Text style={[{ fontSize: 10.5, color: colors.neg }, ft.bold]}>지연</Text>
+            </View>
+          )}
         </View>
         <Progress value={p.progress} showLabel={false} />
       </View>
-      <View style={{ alignItems: 'flex-end', gap: 2 }}>
+      <View style={{ alignItems: 'flex-end', gap: 2, minWidth: 44 }}>
         <Text style={[s.miniPct, ft.bold, numFont]}>{Math.round(p.progress)}%</Text>
-        <Text style={[s.miniTasks, numFont]}>☑ {p.doneTasks}/{p.totalTasks}</Text>
+        <Text style={[s.miniTasks, numFont]}>
+          {p.doneTasks}/{p.totalTasks}건
+        </Text>
       </View>
     </Pressable>
   );
@@ -239,57 +219,49 @@ function ProjectMiniRow({ row: p, first, onPress }: { row: ProjectKpiRow; first:
 function ProjStat({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
     <View style={s.projStat}>
-      <Text style={[s.projVal, ft.extrabold, numFont, color ? { color } : null]}>{value}</Text>
-      <Text style={{ fontSize: 12, color: colors.inkFaint }}>{label}</Text>
+      <Text style={[s.projVal, ft.extrabold, numFont, tight, color ? { color } : null]}>{value}</Text>
+      <Text style={s.projLabel}>{label}</Text>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  titleBar: { width: 4, height: 16, borderRadius: 2, backgroundColor: colors.brand },
-  sectionTitle: { fontSize: 17, color: colors.ink },
   subCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 14,
-    gap: 8,
+    padding: 16,
+    paddingTop: 14,
     marginTop: 10,
-    ...sh.card,
+    ...card,
   },
-  subTitle: { fontSize: 13.5, color: colors.ink },
-  acctRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, alignItems: 'center' },
-  acctName: { flex: 1, fontSize: 13.5, color: colors.inkMute },
-  acctBal: { fontSize: 13.5, color: colors.ink },
+  acctRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, alignItems: 'center', paddingVertical: 9 },
+  acctRowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  acctName: { flexShrink: 1, fontSize: 14, color: colors.ink },
+  acctBank: { fontSize: 12, color: colors.inkFaint, marginTop: 1 },
+  acctBal: { fontSize: 14, color: colors.ink },
   projRow: {
     flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    paddingVertical: 12,
-    ...sh.card,
+    paddingVertical: 14,
+    ...card,
   },
-  projStat: { flex: 1, alignItems: 'center', gap: 2 },
-  projDivider: { width: 1, backgroundColor: colors.line, marginVertical: 6 },
-  projVal: { fontSize: 22, color: colors.ink },
+  projStat: { flex: 1, alignItems: 'center', gap: 3 },
+  projVal: { fontSize: 24, color: colors.ink, lineHeight: 28 },
+  projLabel: { fontSize: 12, color: colors.inkFaint },
   projListCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     marginTop: 10,
-    ...sh.card,
+    ...card,
   },
   miniRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 11,
-    minHeight: 44,
+    paddingVertical: 12,
+    minHeight: 48,
   },
-  miniRowBorder: { borderTopWidth: 1, borderTopColor: colors.line },
+  miniRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-  miniName: { flexShrink: 1, fontSize: 14, color: colors.ink },
-  miniDelay: { fontSize: 11, color: colors.neg },
-  miniPct: { fontSize: 13, color: colors.ink },
+  miniName: { flexShrink: 1, fontSize: 14.5, color: colors.ink },
+  miniDelay: { backgroundColor: colors.negSoft, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
+  miniPct: { fontSize: 13.5, color: colors.ink },
   miniTasks: { fontSize: 11.5, color: colors.inkFaint },
-  moreRow: { paddingVertical: 11, alignItems: 'center' },
+  moreRow: { paddingVertical: 12, alignItems: 'center' },
 });

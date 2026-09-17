@@ -4,20 +4,20 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/useAsync';
-import { dateTime } from '@/lib/format';
-import { Empty, ErrorBox, Field, Modal, Section, Spinner } from '@/components/ui';
-import type { AuditLog, Project, Role, RoleScope, ScopeType, UserRow } from '@/lib/types';
+import { dateTime, todaySeoul } from '@/lib/format';
+import { Empty, ErrorBox, Field, Modal, Section, Spinner, StatusBadge } from '@/components/ui';
+import type { AuditLog, Project, Role, Task, UserRow } from '@/lib/types';
 
 type Tab = 'me' | 'users' | 'audit';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('me');
   const { isCeo } = useSession();
-  // 내 정보는 누구나, 사용자·권한과 감사 로그는 대표만
+  // 내 정보는 누구나, 사용자·직급과 감사 로그는 대표만
   const tabs: [Tab, string][] = isCeo
     ? [
         ['me', '내 정보'],
-        ['users', '사용자 · 권한'],
+        ['users', '사용자 · 직급'],
         ['audit', '감사 로그'],
       ]
     : [['me', '내 정보']];
@@ -91,7 +91,7 @@ function MyAccountTab() {
               ['이름', me.name],
               ['이메일', me.email],
               ['소속 부서', me.department || '—'],
-              ['권한', roles.map((r) => ROLE_LABEL[r]).join(', ') || '—'],
+              ['직급', roles.map((r) => ROLE_LABEL[r]).join(', ') || '—'],
             ] as const
           ).map(([k, v]) => (
             <div key={k} className="flex justify-between gap-4 px-4 py-2.5">
@@ -165,311 +165,288 @@ function MyAccountTab() {
 }
 
 const ROLE_LABEL: Record<Role, string> = { CEO: '대표', ADMIN: '관리자', EMPLOYEE: '직원' };
-const SCOPE_LABEL: Record<ScopeType, string> = {
-  COMPANY: '회사 전체',
-  BUSINESS_TYPE: '사업유형',
-  DEPARTMENT: '부서',
-  PROJECT: '프로젝트',
-};
 
+/**
+ * 직급은 대표 > 관리자 > 직원 3단계 — 조회 범위는 서버가 직급·소속 부서로 정한다.
+ * 배지 색은 파랑 한 계열의 진하기로 서열을 드러낸다: 대표 = 진한 파랑, 관리자 = 연한 파랑, 직원 = 회색.
+ */
+const ROLES: { role: Role; desc: string; badge: string }[] = [
+  { role: 'CEO', desc: '모든 메뉴 · 자금 · 직원/직급 관리', badge: 'bg-blue-600 text-white' },
+  { role: 'ADMIN', desc: '회사 전체 손익 · 거래 · 프로젝트 관리 (자금 · 설정 제외)', badge: 'bg-blue-100 text-blue-700' },
+  { role: 'EMPLOYEE', desc: '소속 부서 · 참여 프로젝트 업무만', badge: 'bg-line-soft text-ink-mute' },
+];
+const ROLE_RANK: Record<Role, number> = { CEO: 0, ADMIN: 1, EMPLOYEE: 2 };
+const roleOf = (u: UserRow): Role =>
+  u.role ??
+  (u.roleScopes ?? []).reduce<Role>((top, s) => (ROLE_RANK[s.role] < ROLE_RANK[top] ? s.role : top), 'EMPLOYEE');
+
+const errMsg = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+
+function RoleBadge({ role }: { role: Role }) {
+  const r = ROLES.find((x) => x.role === role)!;
+  return <span className={`badge font-semibold ${r.badge}`}>{ROLE_LABEL[role]}</span>;
+}
+
+/** 직급 3단계 선택 — 높은 직급부터 나열하고 각 단계가 할 수 있는 일을 함께 보여준다 */
+function RolePicker({ value, onChange, disabled }: { value: Role; onChange: (r: Role) => void; disabled?: boolean }) {
+  return (
+    <div className="grid gap-1.5 sm:grid-cols-3" role="radiogroup" aria-label="직급">
+      {ROLES.map((r) => (
+        <button
+          key={r.role}
+          type="button"
+          role="radio"
+          aria-checked={value === r.role}
+          disabled={disabled}
+          onClick={() => onChange(r.role)}
+          className={`rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            value === r.role ? 'border-brand bg-brand-soft ring-2 ring-brand-ring' : 'border-line hover:bg-line-soft'
+          }`}
+        >
+          <div className={`text-sm font-semibold ${value === r.role ? 'text-brand-deep' : 'text-ink'}`}>{ROLE_LABEL[r.role]}</div>
+          <div className="mt-0.5 text-[13px] leading-snug text-ink-mute">{r.desc}</div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DepartmentSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { departments } = useSession();
+  return (
+    <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">미지정</option>
+      {departments.map((d) => (
+        <option key={d.id} value={d.id}>
+          {d.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function ErrorLine({ message }: { message: string }) {
+  if (!message) return null;
+  return <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-neg">{message}</div>;
+}
+
+/** 직원 관리 — 대표 > 관리자 > 직원 순 목록, 정보·직급 수정, 업무 배정, 퇴사/복직 */
 function UsersTab() {
-  const { businessTypes, departments } = useSession();
+  const { me } = useSession();
   const res = useAsync(() => api.get<UserRow[]>('/users'), []);
-  const projRes = useAsync(() => api.get<Project[]>('/projects'), []);
-  const [target, setTarget] = useState<UserRow | null>(null);
-  const [scopes, setScopes] = useState<RoleScope[]>([]);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [showRetired, setShowRetired] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
+  const [taskTarget, setTaskTarget] = useState<UserRow | null>(null);
+  const [retireTarget, setRetireTarget] = useState<UserRow | null>(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
 
-  const openEditor = (u: UserRow) => {
-    setTarget(u);
-    setScopes(u.roleScopes ?? []);
-    setError('');
-  };
+  const all = res.data ?? [];
+  const active = all.filter((u) => u.isActive);
+  const retired = all.filter((u) => !u.isActive);
+  const rows = showRetired ? [...active, ...retired] : active;
+  const roleCount = (r: Role) => active.filter((u) => roleOf(u) === r).length;
 
-  const nameOfScope = (s: RoleScope): string => {
-    if (s.scopeType === 'COMPANY') return '회사 전체';
-    if (s.scopeType === 'DEPARTMENT')
-      return departments.find((d) => d.id === s.departmentId)?.name ?? '(부서 미지정)';
-    if (s.scopeType === 'BUSINESS_TYPE')
-      return businessTypes.find((b) => b.id === s.businessTypeId)?.name ?? '(사업유형 미지정)';
-    return (projRes.data ?? []).find((p) => p.id === s.projectId)?.name ?? '(프로젝트 미지정)';
-  };
-
-  const save = async () => {
-    if (!target) return;
-    setBusy(true);
+  const reinstate = async (u: UserRow) => {
     setError('');
     try {
-      await api.put(
-        `/users/${target.id}/role-scopes`,
-        scopes.map((s) => ({
-          role: s.role,
-          scopeType: s.scopeType,
-          businessTypeId: s.scopeType === 'BUSINESS_TYPE' ? s.businessTypeId : undefined,
-          departmentId: s.scopeType === 'DEPARTMENT' ? s.departmentId : undefined,
-          projectId: s.scopeType === 'PROJECT' ? s.projectId : undefined,
-        })),
-      );
-      setTarget(null);
+      await api.post(`/users/${u.id}/reinstate`);
+      setNotice(`${u.name} 님을 복직 처리했습니다. 필요하면 업무를 다시 배정하세요.`);
       res.reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '권한 저장에 실패했습니다');
-    } finally {
-      setBusy(false);
+      setError(errMsg(e, '복직 처리에 실패했습니다'));
     }
   };
 
   return (
     <>
       <Section
-        title="사용자"
-        desc="권한은 Role × Scope 조합입니다. 화면 숨김이 아니라 모든 조회 쿼리에 적용됩니다"
+        title="직원"
+        desc={`재직 ${active.length}명 · 대표 ${roleCount('CEO')} · 관리자 ${roleCount('ADMIN')} · 직원 ${roleCount('EMPLOYEE')}`}
         right={
-          <button className="btn-ghost" onClick={() => setCreateOpen(true)}>
-            + 사용자 추가
-          </button>
+          <span className="flex items-center gap-3">
+            {retired.length > 0 && (
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
+                <input
+                  type="checkbox"
+                  className="accent-brand"
+                  checked={showRetired}
+                  onChange={(e) => setShowRetired(e.target.checked)}
+                />
+                퇴사자 보기 ({retired.length})
+              </label>
+            )}
+            <button className="btn-primary" onClick={() => setCreateOpen(true)}>
+              + 직원 추가
+            </button>
+          </span>
         }
       >
+        {(notice || error) && (
+          <div
+            className={`mx-4 mt-3 flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm ${
+              error ? 'border border-red-200 bg-red-50 text-neg' : 'bg-brand-soft text-brand-deep'
+            }`}
+          >
+            <span>{error || notice}</span>
+            <button
+              className="text-xs opacity-60 hover:opacity-100"
+              onClick={() => {
+                setNotice('');
+                setError('');
+              }}
+              aria-label="알림 닫기"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {res.loading && !res.data ? (
           <Spinner />
         ) : res.error ? (
           <ErrorBox message={res.error} onRetry={res.reload} />
+        ) : rows.length === 0 ? (
+          <Empty>등록된 직원이 없습니다.</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-line-soft">
                 <tr>
+                  <th className="th">직급</th>
                   <th className="th">이름</th>
                   <th className="th">이메일</th>
-                  <th className="th">소속</th>
-                  <th className="th">권한</th>
+                  <th className="th">소속 부서</th>
+                  <th className="th text-right">진행 업무</th>
                   <th className="th">상태</th>
                   <th className="th" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-soft">
-                {(res.data ?? []).map((u) => (
-                  <tr key={u.id} className="hover:bg-line-soft/60">
-                    <td className="td font-medium">{u.name}</td>
-                    <td className="td text-ink-mute">{u.email}</td>
-                    <td className="td text-ink-mute">{u.department?.name ?? '—'}</td>
-                    <td className="td">
-                      <span className="flex flex-wrap gap-1">
-                        {(u.roleScopes ?? []).length === 0 ? (
-                          <span className="text-xs text-ink-faint">권한 없음</span>
+                {rows.map((u) => {
+                  const isMe = u.id === me?.id;
+                  const open = u.openTaskCount ?? 0;
+                  return (
+                    <tr key={u.id} className={`hover:bg-line-soft/60 ${u.isActive ? '' : 'text-ink-faint'}`}>
+                      <td className="td">
+                        <RoleBadge role={roleOf(u)} />
+                      </td>
+                      <td className="td font-medium">
+                        {u.name}
+                        {isMe && <span className="badge ml-1.5 bg-line-soft text-ink-mute">나</span>}
+                      </td>
+                      <td className="td text-ink-mute">{u.email}</td>
+                      <td className="td text-ink-mute">
+                        {u.department?.name ?? <span className="text-ink-faint">미지정</span>}
+                      </td>
+                      <td className="td-num">
+                        {u.isActive ? (
+                          <button
+                            className={`rounded-md px-2 py-0.5 hover:bg-line-soft ${open ? 'font-semibold text-ink' : 'text-ink-faint'}`}
+                            onClick={() => setTaskTarget(u)}
+                            title="배정된 업무 보기"
+                          >
+                            {open}건
+                          </button>
                         ) : (
-                          (u.roleScopes ?? []).map((s, i) => (
-                            <span
-                              key={i}
-                              className={`badge ${s.role === 'CEO' ? 'bg-brand-soft text-brand-deep' : 'bg-line-soft text-ink-mute'}`}
-                            >
-                              {ROLE_LABEL[s.role]} · {nameOfScope(s)}
-                            </span>
-                          ))
+                          '—'
                         )}
-                      </span>
-                    </td>
-                    <td className="td text-xs text-ink-mute">{u.isActive ? '활성' : '비활성'}</td>
-                    <td className="td text-right">
-                      <span className="flex justify-end gap-1.5">
-                        <button className="btn-ghost !py-1 text-xs" onClick={() => setEditTarget(u)}>
-                          정보 수정
-                        </button>
-                        <button className="btn-ghost !py-1 text-xs" onClick={() => openEditor(u)}>
-                          권한 편집
-                        </button>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="td">
+                        {u.isActive ? (
+                          <span className="badge bg-emerald-50 text-pos">재직</span>
+                        ) : (
+                          <span className="badge bg-line-soft text-ink-faint">퇴사</span>
+                        )}
+                      </td>
+                      <td className="td text-right">
+                        <span className="flex justify-end gap-1.5">
+                          <button className="btn-ghost !py-1 text-xs" onClick={() => setEditTarget(u)}>
+                            수정
+                          </button>
+                          {u.isActive && (
+                            <button className="btn-ghost !py-1 text-xs" onClick={() => setTaskTarget(u)}>
+                              업무 배정
+                            </button>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </Section>
 
-      <Modal
-        open={!!target}
-        onClose={() => setTarget(null)}
-        wide
-        title={target ? `${target.name} 권한` : ''}
-        desc="여기서 저장하면 해당 사용자의 모든 조회 범위가 즉시 바뀝니다."
-      >
-        <div className="space-y-3">
-          {scopes.length === 0 && (
-            <p className="rounded-md bg-line-soft/60 px-3 py-2 text-xs text-ink-mute">
-              권한이 없습니다. 아래에서 추가하세요. (소속 부서와 참여 프로젝트는 기본으로 조회
-              가능합니다)
-            </p>
-          )}
-          {scopes.map((s, i) => (
-            <div key={i} className="grid grid-cols-[130px_140px_1fr_auto] items-end gap-2">
-              <Field label="역할">
-                <select
-                  className="input"
-                  value={s.role}
-                  onChange={(e) =>
-                    setScopes((xs) =>
-                      xs.map((x, j) => (j === i ? { ...x, role: e.target.value as Role } : x)),
-                    )
-                  }
-                >
-                  {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABEL[r]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="범위">
-                <select
-                  className="input"
-                  value={s.scopeType}
-                  onChange={(e) =>
-                    setScopes((xs) =>
-                      xs.map((x, j) =>
-                        j === i
-                          ? {
-                              ...x,
-                              scopeType: e.target.value as ScopeType,
-                              departmentId: null,
-                              businessTypeId: null,
-                              projectId: null,
-                            }
-                          : x,
-                      ),
-                    )
-                  }
-                >
-                  {(Object.keys(SCOPE_LABEL) as ScopeType[]).map((t) => (
-                    <option key={t} value={t}>
-                      {SCOPE_LABEL[t]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="대상">
-                {s.scopeType === 'COMPANY' ? (
-                  <input className="input" value="회사 전체" disabled />
-                ) : (
-                  <select
-                    className="input"
-                    value={s.departmentId ?? s.businessTypeId ?? s.projectId ?? ''}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setScopes((xs) =>
-                        xs.map((x, j) =>
-                          j === i
-                            ? {
-                                ...x,
-                                departmentId: x.scopeType === 'DEPARTMENT' ? v : null,
-                                businessTypeId: x.scopeType === 'BUSINESS_TYPE' ? v : null,
-                                projectId: x.scopeType === 'PROJECT' ? v : null,
-                              }
-                            : x,
-                        ),
-                      );
-                    }}
-                  >
-                    <option value="">선택</option>
-                    {s.scopeType === 'DEPARTMENT' &&
-                      departments.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    {s.scopeType === 'BUSINESS_TYPE' &&
-                      businessTypes.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    {s.scopeType === 'PROJECT' &&
-                      (projRes.data ?? []).map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.code} {p.name}
-                        </option>
-                      ))}
-                  </select>
-                )}
-              </Field>
-              <button
-                className="btn-ghost !px-2 mb-0.5 text-ink-faint"
-                onClick={() => setScopes((xs) => xs.filter((_, j) => j !== i))}
-                aria-label="권한 삭제"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-
-          <button
-            className="btn-ghost text-xs"
-            onClick={() =>
-              setScopes((xs) => [
-                ...xs,
-                { role: 'EMPLOYEE', scopeType: 'DEPARTMENT', departmentId: null },
-              ])
-            }
-          >
-            + 권한 추가
-          </button>
-
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-neg">
-              {error}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 border-t border-line pt-3">
-            <button className="btn-ghost" onClick={() => setTarget(null)} disabled={busy}>
-              취소
-            </button>
-            <button className="btn-primary" onClick={save} disabled={busy}>
-              {busy ? '저장 중…' : '저장'}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
       <UserCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onSaved={res.reload} />
       <UserEditModal
         target={editTarget}
+        isMe={editTarget?.id === me?.id}
         onClose={() => setEditTarget(null)}
         onSaved={res.reload}
+        onRetire={(u) => {
+          setEditTarget(null);
+          setRetireTarget(u);
+        }}
+        onReinstate={async (u) => {
+          await reinstate(u);
+          setEditTarget(null);
+        }}
+      />
+      <TaskAssignModal target={taskTarget} users={active} onClose={() => setTaskTarget(null)} onChanged={res.reload} />
+      <RetireModal
+        target={retireTarget}
+        onClose={() => setRetireTarget(null)}
+        onOpenTasks={(u) => {
+          setRetireTarget(null);
+          setTaskTarget(u);
+        }}
+        onDone={(msg) => {
+          setNotice(msg);
+          res.reload();
+        }}
       />
     </>
   );
 }
 
-/** 계정 정보 수정 — 이름 · 소속 부서 · 활성 여부 · 비밀번호 재설정 (PATCH /users/:id) */
+/**
+ * 직원 정보 수정 — 이름 · 이메일 · 소속 부서 · 직급 · 비밀번호 재설정 (PATCH /users/:id).
+ * 퇴사/복직은 실수로 누르지 않게 목록이 아니라 이 창 맨 아래(회원탈퇴 자리)에 둔다.
+ */
 function UserEditModal({
   target,
+  isMe,
   onClose,
   onSaved,
+  onRetire,
+  onReinstate,
 }: {
   target: UserRow | null;
+  isMe: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onRetire: (u: UserRow) => void;
+  onReinstate: (u: UserRow) => Promise<void>;
 }) {
-  const { departments } = useSession();
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [departmentId, setDepartmentId] = useState('');
-  const [isActive, setIsActive] = useState(true);
+  const [role, setRole] = useState<Role>('EMPLOYEE');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
-  // 모달이 열릴 때 대상 사용자의 현재 값으로 폼을 채운다
+  // 모달이 열릴 때 대상 직원의 현재 값으로 폼을 채운다
   if (target && loadedFor !== target.id) {
     setLoadedFor(target.id);
     setName(target.name);
+    setEmail(target.email);
     setDepartmentId(target.department?.id ?? '');
-    setIsActive(target.isActive);
+    setRole(roleOf(target));
     setPassword('');
     setError('');
   }
@@ -482,75 +459,73 @@ function UserEditModal({
     try {
       await api.patch(`/users/${target.id}`, {
         name,
+        email,
         departmentId: departmentId || null,
-        isActive,
+        role,
         ...(password ? { password } : {}),
       });
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '저장에 실패했습니다');
+      setError(errMsg(e, '저장에 실패했습니다'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Modal
-      open={!!target}
-      onClose={onClose}
-      title={target ? `${target.name} 정보 수정` : ''}
-      desc={target?.email}
-    >
+    <Modal open={!!target} onClose={onClose} wide title={target ? `${target.name} 정보 수정` : ''}>
       <div className="space-y-3.5">
-        <Field label="이름" required>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="이름" required>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="이메일 (로그인 아이디)" required>
+            <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+        </div>
+        <Field label="소속 부서" hint="직급이 직원이면 소속 부서의 데이터만 조회합니다">
+          <DepartmentSelect value={departmentId} onChange={setDepartmentId} />
         </Field>
-        <Field label="소속 부서">
-          <select
-            className="input"
-            value={departmentId}
-            onChange={(e) => setDepartmentId(e.target.value)}
-          >
-            <option value="">미지정</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+        <Field label="직급" required hint={isMe ? '본인 직급은 바꿀 수 없습니다' : undefined}>
+          <RolePicker value={role} onChange={setRole} disabled={isMe} />
         </Field>
-        <Field label="새 비밀번호" hint="비워두면 기존 비밀번호 유지 · 변경 시 8자 이상">
+        <Field label="비밀번호 재설정" hint="비워두면 기존 비밀번호 유지 · 바꿀 때만 8자 이상 입력 후 직원에게 전달">
           <input
             type="text"
             className="input"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="변경할 때만 입력"
+            autoComplete="off"
           />
         </Field>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-            className="accent-brand"
-          />
-          활성 계정 (해제하면 로그인 차단)
-        </label>
-        {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-neg">
-            {error}
-          </div>
-        )}
-        <div className="flex justify-end gap-2 border-t border-line pt-3">
+        <ErrorLine message={error} />
+        {/* 퇴사/복직은 왼쪽 끝, 취소·저장은 오른쪽 — 같은 줄에 두되 떨어뜨려 실수로 누르지 않게 */}
+        <div className="flex items-center gap-2 border-t border-line pt-3">
+          {target &&
+            (target.isActive ? (
+              <button
+                className="btn-danger"
+                onClick={() => onRetire(target)}
+                disabled={busy || isMe}
+                title={isMe ? '본인 계정은 퇴사 처리할 수 없습니다' : undefined}
+              >
+                퇴사 처리
+              </button>
+            ) : (
+              <button className="btn-ghost text-brand-deep" onClick={() => onReinstate(target)} disabled={busy}>
+                복직 처리
+              </button>
+            ))}
+          <span className="flex-1" />
           <button className="btn-ghost" onClick={onClose} disabled={busy}>
             취소
           </button>
           <button
             className="btn-primary"
             onClick={submit}
-            disabled={busy || !name || (password.length > 0 && password.length < 8)}
+            disabled={busy || !name || !email || (password.length > 0 && password.length < 8)}
           >
             {busy ? '저장 중…' : '저장'}
           </button>
@@ -569,11 +544,11 @@ function UserCreateModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { departments } = useSession();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [departmentId, setDepartmentId] = useState('');
+  const [role, setRole] = useState<Role>('EMPLOYEE');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -581,70 +556,290 @@ function UserCreateModal({
     setBusy(true);
     setError('');
     try {
-      await api.post('/users', { name, email, password, departmentId: departmentId || undefined });
+      await api.post('/users', { name, email, password, departmentId: departmentId || undefined, role });
       onSaved();
       onClose();
       setName('');
       setEmail('');
       setPassword('');
+      setDepartmentId('');
+      setRole('EMPLOYEE');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '생성에 실패했습니다');
+      setError(errMsg(e, '추가에 실패했습니다'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="사용자 추가">
+    <Modal open={open} onClose={onClose} wide title="직원 추가">
       <div className="space-y-3.5">
-        <Field label="이름" required>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="이름" required>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="이메일 (로그인 아이디)" required>
+            <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="초기 비밀번호" required hint="8자 이상 · 첫 로그인 후 본인이 바꾸도록 안내">
+            <input type="text" className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
+          </Field>
+          <Field label="소속 부서">
+            <DepartmentSelect value={departmentId} onChange={setDepartmentId} />
+          </Field>
+        </div>
+        <Field label="직급" required>
+          <RolePicker value={role} onChange={setRole} />
         </Field>
-        <Field label="이메일" required>
-          <input
-            type="email"
-            className="input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
-        <Field label="초기 비밀번호" required hint="8자 이상">
-          <input
-            type="text"
-            className="input"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </Field>
-        <Field label="소속 부서">
-          <select
-            className="input"
-            value={departmentId}
-            onChange={(e) => setDepartmentId(e.target.value)}
-          >
-            <option value="">미지정</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-neg">
-            {error}
-          </div>
-        )}
+        <ErrorLine message={error} />
         <div className="flex justify-end gap-2 border-t border-line pt-3">
-          <button className="btn-ghost" onClick={onClose}>
+          <button className="btn-ghost" onClick={onClose} disabled={busy}>
             취소
           </button>
-          <button
-            className="btn-primary"
-            onClick={submit}
-            disabled={busy || !name || !email || password.length < 8}
-          >
-            추가
+          <button className="btn-primary" onClick={submit} disabled={busy || !name || !email || password.length < 8}>
+            {busy ? '추가 중…' : '추가'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * 업무 배정 — 직원에게 걸린 진행 중 업무를 보고, 새 업무를 배정하거나 다른 직원에게 넘긴다.
+ * 업무는 항상 프로젝트에 속하므로 배정할 때 프로젝트를 고른다.
+ */
+function TaskAssignModal({
+  target,
+  users,
+  onClose,
+  onChanged,
+}: {
+  target: UserRow | null;
+  users: UserRow[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const { labelOf } = useSession();
+  const targetId = target?.id;
+  const tasks = useAsync(
+    () => (targetId ? api.get<Task[]>('/tasks/my', { userId: targetId }) : Promise.resolve([] as Task[])),
+    [targetId],
+  );
+  const projects = useAsync(
+    () => (targetId ? api.get<Project[]>('/projects') : Promise.resolve([] as Project[])),
+    [targetId],
+  );
+  const [projectId, setProjectId] = useState('');
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const today = todaySeoul();
+  const openTasks = (tasks.data ?? []).filter((t) => !t.isDone);
+  const doneCount = (tasks.data ?? []).length - openTasks.length;
+
+  const close = () => {
+    setTitle('');
+    setDueDate('');
+    setError('');
+    onClose();
+  };
+
+  const assign = async () => {
+    if (!targetId) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.post(`/projects/${projectId}/tasks`, { title: title.trim(), assigneeId: targetId, dueDate: dueDate || undefined });
+      setTitle('');
+      setDueDate('');
+      tasks.reload();
+      onChanged();
+    } catch (e) {
+      setError(errMsg(e, '업무 배정에 실패했습니다'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 담당자 변경 — 빈 값이면 담당 해제 */
+  const reassign = async (t: Task, assigneeId: string) => {
+    setError('');
+    try {
+      await api.patch(`/tasks/${t.id}`, { assigneeId: assigneeId || null });
+      tasks.reload();
+      onChanged();
+    } catch (e) {
+      setError(errMsg(e, '담당자 변경에 실패했습니다'));
+    }
+  };
+
+  return (
+    <Modal
+      open={!!target}
+      onClose={close}
+      wide
+      title={target ? `${target.name} 업무 배정` : ''}
+      desc={`진행 중 ${openTasks.length}건${doneCount ? ` · 완료 ${doneCount}건` : ''}`}
+    >
+      <div className="space-y-4">
+        {/* 새 업무 배정 */}
+        <div className="rounded-lg border border-line bg-line-soft/40 p-3">
+          <div className="grid gap-2 sm:grid-cols-[1fr_1.4fr_150px_auto] sm:items-end">
+            <Field label="프로젝트" required>
+              <select className="input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <option value="">선택</option>
+                {(projects.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} {p.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="업무 내용" required>
+              <input
+                className="input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="예: 견적서 작성"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && projectId && title.trim() && !busy) assign();
+                }}
+              />
+            </Field>
+            <Field label="마감일">
+              <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </Field>
+            <button className="btn-primary" onClick={assign} disabled={busy || !projectId || !title.trim()}>
+              {busy ? '배정 중…' : '배정'}
+            </button>
+          </div>
+        </div>
+
+        <ErrorLine message={error} />
+
+        {/* 진행 중 업무 */}
+        {tasks.loading && !tasks.data ? (
+          <Spinner />
+        ) : tasks.error ? (
+          <ErrorBox message={tasks.error} onRetry={tasks.reload} />
+        ) : openTasks.length === 0 ? (
+          <Empty>진행 중인 업무가 없습니다.</Empty>
+        ) : (
+          <ul className="max-h-[calc(50vh/var(--ui-zoom,1))] divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
+            {openTasks.map((t) => {
+              const due = t.dueDate?.slice(0, 10);
+              const overdue = !!due && due < today;
+              return (
+                <li key={t.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{t.title}</div>
+                    <div className="mt-0.5 truncate text-xs text-ink-mute">
+                      {t.project ? `${t.project.code} ${t.project.name}` : '—'}
+                      {due && (
+                        <span className={overdue ? 'font-semibold text-neg' : ''}>
+                          {' '}· 마감 {due.replace(/-/g, '.')}
+                          {overdue ? ' (지남)' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <StatusBadge status={t.status} label={labelOf('TASK_STATUS', t.status)} />
+                  <select
+                    className="input !w-36 !py-1 text-xs"
+                    value={t.assigneeId ?? ''}
+                    onChange={(e) => reassign(t, e.target.value)}
+                    aria-label="담당자 변경"
+                  >
+                    <option value="">담당 해제</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <div className="flex justify-end border-t border-line pt-3">
+          <button className="btn-ghost" onClick={close}>
+            닫기
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** 퇴사 처리 확인 — 계정은 지우지 않고 로그인만 막아 지난 기록을 보존한다 */
+function RetireModal({
+  target,
+  onClose,
+  onOpenTasks,
+  onDone,
+}: {
+  target: UserRow | null;
+  onClose: () => void;
+  onOpenTasks: (u: UserRow) => void;
+  onDone: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const open = target?.openTaskCount ?? 0;
+
+  const close = () => {
+    setError('');
+    onClose();
+  };
+
+  const submit = async () => {
+    if (!target) return;
+    setBusy(true);
+    setError('');
+    try {
+      const r = await api.post<{ unassignedTasks: number }>(`/users/${target.id}/retire`);
+      onDone(
+        `${target.name} 님을 퇴사 처리했습니다.${r.unassignedTasks ? ` 진행 중 업무 ${r.unassignedTasks}건은 담당자 없음으로 바뀌었습니다.` : ''}`,
+      );
+      close();
+    } catch (e) {
+      setError(errMsg(e, '퇴사 처리에 실패했습니다'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={!!target} onClose={close} title={target ? `${target.name} 퇴사 처리` : ''} desc={target?.email}>
+      <div className="space-y-3.5">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-ink-soft">
+          <li>로그인이 즉시 차단되고, 로그인된 기기에서도 로그아웃됩니다.</li>
+          <li>
+            진행 중 업무 <b className="font-num">{open}</b>건은 담당자 없음으로 바뀝니다.
+          </li>
+          <li>지난 업무 일지 · 완료 업무 · 거래 · 감사 로그는 그대로 남습니다.</li>
+          <li>목록의 &lsquo;퇴사자 보기&rsquo;에서 언제든 복직할 수 있습니다.</li>
+        </ul>
+        {open > 0 && target && (
+          <div className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-warn">
+            <span>진행 중 업무를 다른 직원에게 먼저 넘기시겠어요?</span>
+            <button className="btn-ghost !py-1 text-xs" onClick={() => onOpenTasks(target)}>
+              업무 넘기기
+            </button>
+          </div>
+        )}
+        <ErrorLine message={error} />
+        <div className="flex justify-end gap-2 border-t border-line pt-3">
+          <button className="btn-ghost" onClick={close} disabled={busy}>
+            취소
+          </button>
+          <button className="btn-danger" onClick={submit} disabled={busy}>
+            {busy ? '처리 중…' : '퇴사 처리'}
           </button>
         </div>
       </div>

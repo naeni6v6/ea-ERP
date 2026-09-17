@@ -9,12 +9,13 @@ import { useAsync } from '@/lib/useAsync';
 import { compact, num, pct, sdateShort, signClass } from '@/lib/format';
 import { fetchMonthlyPnl } from '@/lib/monthly';
 import { BreakdownTable } from '@/components/BreakdownTable';
+import { CashBurnPanel } from '@/components/CashBurn';
 import { CompareBars, TrendChart } from '@/components/charts';
 import { ExpenseAnalysis } from '@/components/ExpenseAnalysis';
 import { ProjectBoard, type ProjectBoardHandle } from '@/components/ProjectBoard';
 import { ProjectCreateModal } from '@/components/ProjectModals';
 import { ErrorBox, Kpi, Progress, Section, Spinner } from '@/components/ui';
-import type { Dashboard, Project, ProjectFinance } from '@/lib/types';
+import type { CashBurn, Dashboard, Project, ProjectFinance } from '@/lib/types';
 
 const ZERO_FIN: ProjectFinance = { received: '0', receivable: '0', paid: '0', payable: '0', expectedProfit: '0' };
 
@@ -39,6 +40,9 @@ export default function DashboardPage() {
     () => (canPnl ? fetchMonthlyPnl(q) : Promise.resolve(null)),
     [canPnl, q.businessTypeId, q.departmentId, q.projectId],
   );
+
+  // Burn Rate · Runway — 대표 전용 (기간 필터와 무관, 은행 입출금 기준)
+  const burn = useAsync(() => (isCeo ? api.get<CashBurn>('/metrics/burn') : Promise.resolve(null)), [isCeo]);
 
   // 프로젝트 보드 — 부서·담당·목표까지 포함한 전체 목록 (scope 적용, 상태 필터는 보드 전용)
   const projList = useAsync(
@@ -191,6 +195,9 @@ export default function DashboardPage() {
           />
         </div>
       )}
+
+      {/* ── Burn Rate · Runway (CEO 전용) — 손익 요약 바로 아래에서 현금 소진 속도를 먼저 본다 ── */}
+      {burn.data && <CashBurnPanel data={burn.data} />}
 
       {/* ── 월별 추이 차트 (CEO / ADMIN) ── */}
       {pnl && monthly.data && (

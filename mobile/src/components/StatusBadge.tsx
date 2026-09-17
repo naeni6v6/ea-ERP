@@ -42,8 +42,8 @@ const s = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
     borderRadius: 999,
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  text: { fontSize: 12 },
+  text: { fontSize: 11.5, lineHeight: 15 },
 });

@@ -20,6 +20,9 @@ export class OrgController {
   @Get('users') @Roles(Role.CEO, Role.ADMIN) listUsers(@CurrentUser() u: AuthUser) { return this.org.listUsers(u.companyId); }
   @Post('users') @Roles(Role.CEO) createUser(@CurrentUser() u: AuthUser, @Body() d: CreateUserDto) { return this.org.createUser(u, d); }
   @Patch('users/:id') @Roles(Role.CEO) updateUser(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() d: UpdateUserDto) { return this.org.updateUser(u, id, d); }
+  /** 퇴사 처리 — 계정 삭제 대신 로그인 차단 + 진행 중 업무 담당 해제. 지난 기록(일지·거래·감사로그)은 보존 */
+  @Post('users/:id/retire') @Roles(Role.CEO) retireUser(@CurrentUser() u: AuthUser, @Param('id') id: string) { return this.org.retireUser(u, id); }
+  @Post('users/:id/reinstate') @Roles(Role.CEO) reinstateUser(@CurrentUser() u: AuthUser, @Param('id') id: string) { return this.org.reinstateUser(u, id); }
   /** 배열 본문은 ValidationPipe가 그냥 통과시키므로 ParseArrayPipe로 항목마다 검증한다 */
   @Put('users/:id/role-scopes') @Roles(Role.CEO) setScopes(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ParseArrayPipe({ items: RoleScopeDto, whitelist: true })) scopes: RoleScopeDto[]) { return this.org.setRoleScopes(u, id, scopes); }
 

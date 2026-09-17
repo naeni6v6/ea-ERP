@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './themed';
 import { big, compact } from '../lib/money';
-import { colors, ft, numFont, sh } from '../theme';
+import { card, colors, ft, numFont } from '../theme';
 
 /**
  * 최근 6개월 매출·영업이익 묶음 막대 — 웹 TrendChart와 같은 시리즈 색.
@@ -41,9 +41,12 @@ export function TrendBars({ data }: { data: TrendRow[] }) {
 
   return (
     <View style={s.wrap}>
-      <View style={s.legend}>
-        <LegendItem color={SERIES.sales} label="매출" />
-        <LegendItem color={SERIES.profit} label="영업이익" />
+      <View style={s.head}>
+        <Text style={[s.title, ft.bold]}>최근 6개월 추이</Text>
+        <View style={s.legend}>
+          <LegendItem color={SERIES.sales} label="매출" />
+          <LegendItem color={SERIES.profit} label="영업이익" />
+        </View>
       </View>
 
       <View style={{ flexDirection: 'row' }}>
@@ -61,17 +64,17 @@ export function TrendBars({ data }: { data: TrendRow[] }) {
                 )}
               </View>
               <View style={[s.posArea, { height: posH }]}>
-                <Bar h={sv >= 0n ? hOf(sv) : 0} color={SERIES.sales} />
-                <Bar h={pv >= 0n ? hOf(pv) : 0} color={SERIES.profit} />
+                <Bar h={sv >= 0n ? hOf(sv) : 0} color={SERIES.sales} faded={i !== last} />
+                <Bar h={pv >= 0n ? hOf(pv) : 0} color={SERIES.profit} faded={i !== last} />
               </View>
               <View style={s.baseline} />
               {hasNeg && (
                 <View style={[s.negArea, { height: negH }]}>
-                  <Bar h={sv < 0n ? hOf(sv) : 0} color={SERIES.sales} down />
-                  <Bar h={pv < 0n ? hOf(pv) : 0} color={SERIES.profit} down />
+                  <Bar h={sv < 0n ? hOf(sv) : 0} color={SERIES.sales} down faded={i !== last} />
+                  <Bar h={pv < 0n ? hOf(pv) : 0} color={SERIES.profit} down faded={i !== last} />
                 </View>
               )}
-              <Text style={[s.monthLabel, i === last && { color: colors.inkMute, ...ft.semibold }]}>{r.short}</Text>
+              <Text style={[s.monthLabel, i === last && { color: colors.ink, ...ft.semibold }]}>{r.short}</Text>
             </View>
           );
         })}
@@ -80,12 +83,12 @@ export function TrendBars({ data }: { data: TrendRow[] }) {
   );
 }
 
-function Bar({ h, color, down }: { h: number; color: string; down?: boolean }) {
+function Bar({ h, color, down, faded }: { h: number; color: string; down?: boolean; faded?: boolean }) {
   return (
     <View
       style={[
         s.bar,
-        { height: h, backgroundColor: color },
+        { height: h, backgroundColor: color, opacity: faded ? 0.55 : 1 },
         down ? s.barDown : s.barUp,
         h === 0 && { backgroundColor: 'transparent' },
       ]}
@@ -96,7 +99,7 @@ function Bar({ h, color, down }: { h: number; color: string; down?: boolean }) {
 function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-      <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color }} />
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
       <Text style={{ fontSize: 12, color: colors.inkMute }}>{label}</Text>
     </View>
   );
@@ -104,22 +107,22 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 
 const s = StyleSheet.create({
   wrap: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 14,
-    paddingBottom: 10,
+    padding: 16,
+    paddingBottom: 12,
     marginTop: 10,
-    gap: 8,
-    ...sh.card,
+    gap: 10,
+    ...card,
   },
-  legend: { flexDirection: 'row', gap: 14 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 14.5, color: colors.ink },
+  legend: { flexDirection: 'row', gap: 12 },
   month: { flex: 1, alignItems: 'center' },
   lastLabel: { fontSize: 10.5, color: colors.inkMute },
-  posArea: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
-  negArea: { flexDirection: 'row', alignItems: 'flex-start', gap: 2 },
+  posArea: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+  negArea: { flexDirection: 'row', alignItems: 'flex-start', gap: 3 },
   baseline: { alignSelf: 'stretch', height: 1, backgroundColor: colors.line },
-  bar: { width: 11 },
-  barUp: { borderTopLeftRadius: 4, borderTopRightRadius: 4 },
-  barDown: { borderBottomLeftRadius: 4, borderBottomRightRadius: 4 },
-  monthLabel: { fontSize: 11, color: colors.inkFaint, marginTop: 5 },
+  bar: { width: 10 },
+  barUp: { borderTopLeftRadius: 5, borderTopRightRadius: 5 },
+  barDown: { borderBottomLeftRadius: 5, borderBottomRightRadius: 5 },
+  monthLabel: { fontSize: 11.5, color: colors.inkFaint, marginTop: 6 },
 });

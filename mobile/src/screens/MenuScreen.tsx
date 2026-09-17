@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '../components/themed';
 import { useAuth } from '../auth/AuthContext';
-import { brandGradient, colors, ft, sh } from '../theme';
+import { brandGradient, card, colors, ft, sh, tight } from '../theme';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 
 type Nav = CompositeNavigationProp<
@@ -127,13 +127,13 @@ export function MenuScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={s.container}>
       {/* 내 프로필 — 토스 상단 프로필 행 */}
-      <Pressable style={s.profileCard} onPress={() => nav.navigate('Profile')}>
+      <Pressable style={({ pressed }) => [s.profileCard, pressed && { opacity: 0.9 }]} onPress={() => nav.navigate('Profile')}>
         {/* 웹 우측 상단 프로필과 같은 브랜드 그라데이션 원 */}
         <LinearGradient colors={[...brandGradient]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.avatar}>
           <Text style={s.avatarText}>{me.name.slice(0, 1)}</Text>
         </LinearGradient>
         <View style={{ flex: 1 }}>
-          <Text style={s.profileName}>{me.name}</Text>
+          <Text style={[s.profileName, tight]}>{me.name}</Text>
           <Text style={s.profileMeta}>
             {[me.department?.name, roles].filter(Boolean).join(' · ') || '내 정보 관리'}
           </Text>
@@ -142,7 +142,7 @@ export function MenuScreen() {
       </Pressable>
 
       {sections.map((sec) => (
-        <View key={sec.title} style={{ gap: 7 }}>
+        <View key={sec.title} style={{ gap: 8 }}>
           <Text style={s.sectionTitle}>{sec.title}</Text>
           <View style={s.sectionCard}>
             {sec.items.map((it, i) => (
@@ -152,7 +152,7 @@ export function MenuScreen() {
                 style={({ pressed }) => [s.row, i > 0 && s.rowDivider, pressed && { backgroundColor: colors.bgSoft }]}
               >
                 <View style={[s.iconTile, { backgroundColor: sec.tint.bg }]}>
-                  <Ionicons name={it.icon} size={19} color={sec.tint.fg} />
+                  <Ionicons name={it.icon} size={18} color={sec.tint.fg} />
                 </View>
                 <Text style={s.rowLabel}>{it.label}</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
@@ -166,33 +166,29 @@ export function MenuScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { padding: 16, gap: 18, paddingBottom: 40 },
+  container: { padding: 16, gap: 20, paddingBottom: 40 },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.card,
-    borderRadius: 20,
+    gap: 14,
     padding: 16,
-    ...sh.card,
+    ...card,
   },
   avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     ...sh.glow,
   },
   avatarText: { color: '#fff', fontSize: 19, ...ft.bold },
-  profileName: { fontSize: 17, color: colors.ink, ...ft.bold },
+  profileName: { fontSize: 18, color: colors.ink, ...ft.extrabold },
   profileMeta: { fontSize: 13, color: colors.inkMute, marginTop: 2 },
-  sectionTitle: { fontSize: 13, color: colors.inkFaint, marginLeft: 4, ...ft.semibold },
+  sectionTitle: { fontSize: 12.5, color: colors.inkFaint, marginLeft: 6, ...ft.semibold },
   sectionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
     overflow: 'hidden',
-    ...sh.card,
+    ...card,
   },
   row: {
     flexDirection: 'row',
@@ -204,9 +200,9 @@ const s = StyleSheet.create({
   },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
   iconTile: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },

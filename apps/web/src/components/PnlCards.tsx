@@ -16,14 +16,16 @@ const CARD_ROWS: { key: keyof BreakdownRow; label: string; sign?: boolean; minus
 
 /**
  * 애플 시스템 컬러 기반 팔레트.
- * - gradient: 유형별/기간별 — iOS 위젯풍 대각 그라데이션 헤더
+ * - gradient: 유형별/기간별 — 위쪽 컬러 띠 + 옅은 색 워시 헤더
  * - accent: 사업부서별 — 화이트 카드 + 컬러 악센트 (실루엣 자체가 달라 페이지 혼동 방지)
  */
 const APPLE: { from: string; to: string; accent: string }[] = [
   // 무지개 순서 (빨→주→노→초→파→남→보), 애플 시스템 컬러 톤
+  // 주황·노랑은 색상각이 6°밖에 안 떨어져(#FF9F0A / #F0AD0A) 옅은 헤더에서 구분이 안 됐다 —
+  // 주황은 빨강 쪽(약 25°), 노랑은 레몬 쪽(약 50°)으로 벌려 빨·주·노 간격을 고르게 맞춘다
   { from: '#FF453A', to: '#FF7A6E', accent: '#E0362C' }, // 빨강 red
-  { from: '#FF9F0A', to: '#FFBE55', accent: '#E68A00' }, // 주황 orange
-  { from: '#F0AD0A', to: '#FFD056', accent: '#C7920A' }, // 노랑 yellow(gold)
+  { from: '#FF7A1A', to: '#FFA057', accent: '#E0600A' }, // 주황 orange
+  { from: '#FFCC00', to: '#FFE166', accent: '#A67C00' }, // 노랑 yellow (글자는 어두운 금색이라야 읽힌다)
   { from: '#30C158', to: '#6EDD8F', accent: '#1FA347' }, // 초록 green
   { from: '#0A84FF', to: '#5AB2FF', accent: '#0A84FF' }, // 파랑 blue
   { from: '#5E5CE6', to: '#8D8BF2', accent: '#5E5CE6' }, // 남색 indigo
@@ -40,17 +42,31 @@ function PnlCard({ row, color, variant }: { row: BreakdownRow; color: (typeof AP
     <div
       className="overflow-hidden rounded-2xl border border-black/[0.06] bg-white transition-all duration-200 hover:-translate-y-0.5"
       style={{
-        boxShadow: `0 1px 2px rgba(20,18,16,0.04), 0 10px 28px -12px ${color.accent}40, 0 2px 8px -2px rgba(20,18,16,0.06)`,
+        boxShadow: `0 1px 2px rgba(20,18,16,0.04), 0 10px 28px -12px ${color.accent}26, 0 2px 8px -2px rgba(20,18,16,0.06)`,
       }}
     >
       {variant === 'gradient' ? (
-        /* 유형별/기간별 — 그라데이션 헤더 */
-        <div className="px-5 pb-3.5 pt-4" style={{ background: `linear-gradient(135deg, ${color.from}, ${color.to})` }}>
+        /*
+         * 유형별/기간별 — 위쪽 컬러 띠 + 옅은 색 워시 헤더.
+         * 원색으로 헤더를 통째로 칠하면 카드가 여러 장 모였을 때 너무 쨍해서, 색은 띠·숫자에만 진하게 쓴다.
+         * (사업부서별 accent 는 왼쪽 세로 띠 — 실루엣이 달라 페이지를 헷갈리지 않는다)
+         */
+        <div className="relative px-5 pb-3.5 pt-5" style={{ background: `linear-gradient(180deg, ${color.from}1F, ${color.to}0A)` }}>
+          <span
+            className="absolute inset-x-0 top-0 h-1"
+            style={{ background: `linear-gradient(90deg, ${color.from}, ${color.to})` }}
+          />
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="truncate text-base font-bold text-white drop-shadow-sm">{row.name}</h3>
-            <span className="shrink-0 font-num text-xl font-bold text-white drop-shadow-sm">{opText}</span>
+            <h3 className="truncate text-base font-bold text-ink">{row.name}</h3>
+            {/* 적자는 카드 색 대신 빨강으로 — 색만 보고 흑자로 오해하지 않게 */}
+            <span
+              className={`shrink-0 font-num text-xl font-bold ${op < 0n ? 'text-neg' : ''}`}
+              style={op < 0n ? undefined : { color: color.accent }}
+            >
+              {opText}
+            </span>
           </div>
-          <p className="mt-0.5 text-xs font-medium text-white/85">영업이익 기준</p>
+          <p className="mt-0.5 text-xs font-medium text-ink-mute">영업이익 기준</p>
         </div>
       ) : (
         /* 사업부서별 — 화이트 헤더 + 컬러 악센트 (색 워시로 존재감 강화) */

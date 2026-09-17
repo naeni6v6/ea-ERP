@@ -7,7 +7,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useExpenseFlows } from '../api/queries';
 import { big, compact } from '../lib/money';
 import { kstYmd, lastDayOf, shiftMonth, todaySeoul } from '../lib/dates';
-import { categoryColor, colors, ft, numFont, sh } from '../theme';
+import { card, categoryColor, colors, ft, numFont } from '../theme';
 
 const TOP_N = 5;
 
@@ -143,11 +143,9 @@ export function ExpenseAnalysis() {
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
     padding: 16,
     gap: 10,
-    ...sh.card,
+    ...card,
   },
   desc: { fontSize: 12.5, color: colors.inkFaint },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7 },

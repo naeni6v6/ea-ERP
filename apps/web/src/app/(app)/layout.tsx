@@ -11,7 +11,7 @@ import { SessionProvider, useSession } from '@/lib/session';
 import { FilterBar } from '@/components/FilterBar';
 import { Logo } from '@/components/Logo';
 import { NoticeBanner } from '@/components/NoticeBanner';
-import { Spinner } from '@/components/ui';
+import { Modal, Spinner } from '@/components/ui';
 import type { CardExpenseList } from '@/lib/types';
 
 interface NavShow {
@@ -76,6 +76,87 @@ const SLACK_URL = process.env.NEXT_PUBLIC_SLACK_URL ?? 'https://app.slack.com';
  * 뷰어가 꺼져 있으면 열리지 않으므로 링크에 안내를 달아 둔다. 주소는 NEXT_PUBLIC_MOBILE_VIEWER_URL 로 덮어쓴다.
  */
 const MOBILE_VIEWER_URL = process.env.NEXT_PUBLIC_MOBILE_VIEWER_URL ?? 'http://localhost:8082/viewer.html';
+
+/** 뷰어 서버가 응답하는지 — 꺼져 있으면 연결 거부로 바로 실패한다 (no-cors 라 응답 본문은 못 읽지만 켜짐 여부는 안다) */
+async function viewerAlive(url: string, timeoutMs = 2500): Promise<boolean> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/**
+ * 모바일 뷰어 버튼 — 누르면 뷰어 서버가 켜져 있는지 먼저 확인한다.
+ * 켜져 있으면 새 탭으로 열고, 꺼져 있으면 빈 "연결할 수 없음" 탭 대신 실행 방법을 안내한다.
+ * 팝업 차단을 피하려고 클릭 순간 빈 탭을 먼저 열어 두고, 확인 결과에 따라 주소를 넣거나 닫는다.
+ */
+function MobileViewerButton({ className }: { className: string }) {
+  const [state, setState] = useState<'idle' | 'checking' | 'off'>('idle');
+
+  const open = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (state === 'checking') return;
+    const win = window.open('', '_blank');
+    setState('checking');
+    const ok = await viewerAlive(MOBILE_VIEWER_URL);
+    if (ok) {
+      setState('idle');
+      if (win) {
+        win.opener = null;
+        win.location.href = MOBILE_VIEWER_URL;
+      } else {
+        window.location.href = MOBILE_VIEWER_URL;
+      }
+    } else {
+      win?.close();
+      setState('off');
+    }
+  };
+
+  return (
+    <>
+      <a href={MOBILE_VIEWER_URL} onClick={open} className={className} aria-busy={state === 'checking'}>
+        <PhoneMark size={13} />
+        <span className="flex-1 truncate">{state === 'checking' ? '뷰어 확인 중…' : '모바일 뷰어 열기'}</span>
+        <span className="text-[11px] text-white/40">↗</span>
+      </a>
+      <Modal
+        open={state === 'off'}
+        onClose={() => setState('idle')}
+        title="모바일 뷰어가 꺼져 있습니다"
+        desc="뷰어는 ERP와 따로 실행하는 프로그램이라, 먼저 켜 두어야 열립니다."
+      >
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-ink-soft">
+          <li>
+            프로젝트의 <b className="text-ink">mobile</b> 폴더를 엽니다.
+          </li>
+          <li>
+            <b className="text-ink">모바일뷰어_실행.bat</b> 을 더블클릭합니다.
+            <span className="block text-xs text-ink-faint">처음 한 번은 부품 설치로 1~2분 걸립니다.</span>
+          </li>
+          <li>검은 창이 뜬 채로 두면 잠시 뒤 뷰어가 저절로 열립니다. 창을 닫으면 뷰어도 꺼집니다.</li>
+        </ol>
+        <p className="mt-3 rounded-lg bg-line-soft px-3 py-2 font-num text-xs text-ink-mute">
+          뷰어 주소 · {MOBILE_VIEWER_URL}
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button className="btn-ghost" onClick={() => setState('idle')}>
+            닫기
+          </button>
+          <button className="btn-primary" onClick={open}>
+            켰어요, 다시 열기
+          </button>
+        </div>
+      </Modal>
+    </>
+  );
+}
 
 function PhoneMark({ size = 16 }: { size?: number }) {
   return (
@@ -316,17 +397,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
         {/* 하단 바로가기 — 모바일 뷰어(내 PC에서 앱 화면 보기) + 팀 Slack */}
         <div className="space-y-1.5 border-t border-shell-line px-3 py-3">
-          <a
-            href={MOBILE_VIEWER_URL}
-            target="_blank"
-            rel="noreferrer"
-            title="mobile 폴더의 모바일뷰어_실행.bat 을 먼저 실행해야 열립니다"
-            className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-shell-line px-2.5 py-2 text-xs text-white/75 transition-colors hover:border-white/30 hover:bg-white/5 hover:text-white"
-          >
-            <PhoneMark size={13} />
-            <span className="flex-1 truncate">모바일 뷰어 열기</span>
-            <span className="text-[11px] text-white/40">↗</span>
-          </a>
+          <MobileViewerButton className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-shell-line px-2.5 py-2 text-xs text-white/75 transition-colors hover:border-white/30 hover:bg-white/5 hover:text-white" />
           <a
             href={SLACK_URL}
             target="_blank"

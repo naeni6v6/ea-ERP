@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { uiZoom } from '@/lib/zoom';
 
 /**
  * 항상 아래로 열리는 선택 상자.
@@ -53,11 +54,13 @@ export function DownSelect({
     const el = btnRef.current;
     if (!el) return null;
     const r = el.getBoundingClientRect();
+    // 측정값은 확대된 화면 px — fixed 목록의 style px 로 쓰려면 배율로 나눈다
+    const z = uiZoom();
     return {
-      top: r.bottom + GAP,
-      left: r.left,
-      width: Math.max(r.width, 150),
-      maxHeight: Math.max(120, window.innerHeight - r.bottom - GAP - 12),
+      top: r.bottom / z + GAP,
+      left: r.left / z,
+      width: Math.max(r.width / z, 150),
+      maxHeight: Math.max(120, (window.innerHeight - r.bottom) / z - GAP - 12),
     };
   }, []);
 

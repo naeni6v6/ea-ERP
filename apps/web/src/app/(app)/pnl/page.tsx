@@ -36,7 +36,7 @@ export default function PnlPage() {
   const f = useFilters();
   const q = f.query;
   const [groupBy, setGroupBy] = useState<GroupBy>('businessType');
-  const [yoy, setYoy] = useState(false);
+  const [yoy, setYoy] = useState(true); // 전년 동기 비교가 기본
 
   const pnlRes = useAsync(
     () => api.get<Pnl>('/metrics/pnl', { ...q, yoy: yoy ? '1' : undefined }),

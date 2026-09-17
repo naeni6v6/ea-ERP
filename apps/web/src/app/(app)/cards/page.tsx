@@ -398,7 +398,7 @@ function ExpenseList({
         ) : (
           <>
             {/* 세로 높이를 화면 안으로 제한 → 가로 스크롤바가 항상 보인다. 헤더는 고정 */}
-            <div className="max-h-[68vh] overflow-auto">
+            <div className="max-h-[calc(68vh/var(--ui-zoom,1))] overflow-auto">
               <table className="w-full">
                 <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.line.soft)]">
                   <tr>
@@ -1010,7 +1010,7 @@ function CardFormModal({
           <Field label="소지자" hint="'누가 썼는지'는 이 매핑으로 결정됩니다">
             <select className="input" value={holderUserId} onChange={(e) => setHolderUserId(e.target.value)}>
               <option value="">미지정</option>
-              {(usersRes.data ?? []).map((u) => (
+              {(usersRes.data ?? []).filter((u) => u.isActive || u.id === holderUserId).map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
                   {u.department ? ` (${u.department.name})` : ''}

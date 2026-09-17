@@ -11,6 +11,8 @@ const sel = (q: any) => ({ businessTypeId: q.businessTypeId || undefined, depart
 export class MetricsController {
   constructor(private m: MetricsService, private scope: ScopeService) {}
   /** 대표/관리자/직원 공통 진입점 — Role에 따라 응답 필드가 달라짐 */
+  /** 월 현금 소진(Burn Rate)과 버틸 수 있는 기간(Runway) — 대표 전용. months = 추이 개월 수(기본 12) */
+  @Get('burn') @Roles(Role.CEO) burn(@CurrentUser() u: AuthUser, @Query('months') months?: string) { return this.m.cashBurn(u, Number(months) || 12); }
   @Get('dashboard') dashboard(@CurrentUser() u: AuthUser, @Query() q: any) { return this.m.dashboard(u, sel(q), q.preset, q.from, q.to); }
   @Get('pnl') @Roles(Role.CEO, Role.ADMIN) pnl(@CurrentUser() u: AuthUser, @Query() q: any) { this.scope.assertPnl(u); return this.m.pnl(u, sel(q), q.preset, q.from, q.to, q.yoy === '1'); }
   @Get('pnl/breakdown') @Roles(Role.CEO, Role.ADMIN) breakdown(@CurrentUser() u: AuthUser, @Query() q: any) { return this.m.pnlBreakdown(u, sel(q), (q.groupBy as GroupBy) ?? 'businessType', q.preset, q.from, q.to); }

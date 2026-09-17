@@ -3,38 +3,19 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { colors, ft } from '../theme';
+import { colors, ft, tight } from '../theme';
 import type { MainTabParamList } from '../navigation/types';
 import { Text } from './themed';
 
-/** 화면마다 하나씩 — 서로 나란히 놓이지 않으므로 각 화면의 성격에 맞는 톤을 쓴다 */
-export const HEADER_TINT = {
-  brand: { bg: colors.brandSoft, fg: colors.brandDeep },
-  viz: { bg: colors.vizSoft, fg: colors.viz },
-  pos: { bg: colors.posSoft, fg: colors.pos },
-  warn: { bg: colors.warnSoft, fg: colors.warn },
-  neutral: { bg: colors.bgSoft, fg: colors.inkMute },
-} as const;
-
 /**
- * 헤더 타이틀 — 제목만 덩그러니 두지 않고 iOS 내비게이션 바처럼
- * 작은 색 아이콘 타일 + 큰 제목을 나란히 둔다. (헤더 면·그림자는 navigation의 headerStyle이 맡는다)
+ * 헤더 타이틀 — 장식 없이 큰 제목 하나. (헤더 면·그림자는 navigation의 headerStyle이 맡는다)
+ * 작은 부제가 있으면 제목 아래 한 줄로 조용히 붙인다.
  */
-export function HeaderTitle({
-  title,
-  icon,
-  tint = HEADER_TINT.brand,
-}: {
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  tint?: { bg: string; fg: string };
-}) {
+export function HeaderTitle({ title, sub }: { title: string; sub?: string }) {
   return (
-    <View style={s.row}>
-      <View style={[s.tile, { backgroundColor: tint.bg }]}>
-        <Ionicons name={icon} size={16} color={tint.fg} />
-      </View>
-      <Text style={s.title}>{title}</Text>
+    <View>
+      <Text style={[s.title, ft.extrabold, tight]}>{title}</Text>
+      {!!sub && <Text style={s.sub}>{sub}</Text>}
     </View>
   );
 }
@@ -53,7 +34,7 @@ export function TabBackButton() {
       style={s.backBtn}
       accessibilityLabel="뒤로가기"
     >
-      <Ionicons name="arrow-back" size={22} color={colors.brandDeep} />
+      <Ionicons name="chevron-back" size={24} color={colors.ink} />
     </Pressable>
   );
 }
@@ -64,16 +45,8 @@ const s = StyleSheet.create({
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    marginLeft: 4,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  tile: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // iOS 큰 제목 느낌 — 자간을 살짝 좁혀 또렷하게
-  title: { fontSize: 21, color: colors.ink, letterSpacing: -0.3, ...ft.extrabold },
+  title: { fontSize: 22, color: colors.ink },
+  sub: { fontSize: 12, color: colors.inkFaint, marginTop: 1 },
 });
